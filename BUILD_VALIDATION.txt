@@ -1,0 +1,13 @@
+Windows x64 bilingual UI build — 2026-09-09
+
+Built from the delivered UI-fixed bilingual source with PyInstaller 6.22.2.
+Source regression tests: 59 passed in the preceding source delivery, including 150% scale checks.
+Frozen startup: Chinese and English both exit 0 with --smoke-test, isolated queue data,
+and no PYTHONPATH/PYTHONHOME/Qt plugin path overrides. SVG assets and Qt platform/icon
+plugins are bundled. This is startup validation, not a full manual frozen UI walkthrough.
+ZIP CRC and SHA-256 checksums generated at packaging time.
+
+No live authenticated downloads or fresh antivirus verdict in this build validation.
+Defender settings unchanged. Source/VALIDATION.md records the preceding source-only
+validation round; this file records the subsequent requested EXE build.
+
