@@ -1,4 +1,4 @@
-# osu! Batch 1.1 — Windows 谱面批量下载工具
+# osu! Batch — Windows 谱面批量下载工具
 
 > **安全提示 / Security notice**
 >
