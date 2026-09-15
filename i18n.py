@@ -97,7 +97,7 @@ Sayobot 小夜（无需登录）|Sayobot (no login required)
 搜索发生内部错误，未确认结果完整性。请重试。|Search failed internally. Results may be incomplete; please retry.
 正在结束搜索，请稍候…|Stopping search, please wait…
 当前列表保持搜索源原始顺序。|Results are in the source's original order.
-osu! Batch 1.1 · 谱面批量下载|osu! Batch 1.1 · Beatmap downloader
+osu! Batch 1.1.1 · 谱面批量下载|osu! Batch 1.1.1 · Beatmap downloader
 官网登录会话 · 仅本次运行|Official session · This run only
 打开 osu! 官网|Open osu! website
 Cookie 请求标头，或 osu_session 的值|Cookie header or osu_session value
@@ -129,6 +129,7 @@ Sayobot 小夜|Sayobot
 取消选中|Cancel selected
 重试失败 / 已取消|Retry failed / canceled
 移除选中记录|Remove selected
+清除所有下载记录|Clear all download records
 导出失败清单|Export failures
 就绪 · 双击任务可打开官网谱面页。下载完成后将 .osz 拖入 osu! 导入。|Ready. Double-click a task to open its osu! page. Drag downloaded .osz files into osu! to import.
 官网会话已设置 · 未验证|Official session set · Unverified
@@ -141,6 +142,11 @@ Sayobot 小夜|Sayobot
 本轮队列已结束。失败任务可查看详情后重试；已完成 .osz 可拖入 osu! 导入。|Queue finished. Review failed tasks before retrying; drag completed .osz files into osu! to import.
 正在暂停；当前网络请求最多约 20 秒结束，临时文件将保留。|Pausing; current requests may take about 20 seconds to stop. Partial files are kept.
 已移除未运行的选中记录；下载文件和临时文件仍保留在保存目录。|Removed selected inactive records. Downloads and partial files are kept.
+当前没有下载记录。|There are no download records.
+确定清除全部 |Clear all 
+ 条下载记录吗？| download records?
+此操作不会删除已下载的 .osz 文件或临时文件。|Downloaded .osz files and partial files will not be deleted.
+已清除所有下载记录；下载文件和临时文件仍保留在保存目录。|Cleared all download records. Downloads and partial files are kept.
 当前没有失败任务。|There are no failed tasks.
 导出失败|Export failed
 无法写入所选文件。|Cannot write to the selected file.
