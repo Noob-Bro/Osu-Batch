@@ -40,6 +40,10 @@ class Store:
         self.db.execute("DELETE FROM tasks WHERE sid=?", (sid,))
         self.db.commit()
 
+    def clear_tasks(self):
+        self.db.execute("DELETE FROM tasks")
+        self.db.commit()
+
     def settings(self):
         return {r[0]: json.loads(r[1]) for r in self.db.execute("SELECT key,value FROM settings")}
 
