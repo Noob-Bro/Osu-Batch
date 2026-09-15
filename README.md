@@ -11,7 +11,7 @@
 >
 > Verify the download source, scan the files if necessary, or review the source code and build the application yourself if you have concerns.
 
-This repository contains the **UI fixes and Chinese/English language switching release (2026-09-09)** while retaining the advanced filtering features.
+This repository contains **osu! Batch 1.1.1 (2026-09-15)** with the UI fixes, Chinese/English language switching, and advanced filtering features.
 
 The source code is located in the repository root. The portable Windows x64 build is available from **Releases**. Extract the entire archive before running `OsuBatch.exe`.
 
@@ -45,7 +45,7 @@ The **search source** and **download source** are independent.
 
 For example, you may search with Sayobot and then download using the official source configured in the main window. The search source is never changed automatically.
 
-The new version continues using the existing queue database. Close the previous version before upgrading.
+Version 1.1.1 adds a confirmation-protected **Clear all download records** button. It clears only queue records and does not delete downloaded `.osz` files or partial files. The new version continues using the existing queue database. Close the previous version before upgrading.
 
 ### Filtering Semantics
 
@@ -232,7 +232,8 @@ Rules:
 <BeatmapsetID>-novideo.osz
 ```
 
-* **Remove Selected Record** removes only the queue record. It does not delete `.osz` or temporary files.
+* **Remove Selected Record** removes only the selected queue record. It does not delete `.osz` or temporary files.
+* **Clear all download records** asks for confirmation and removes all queue records. It does not delete `.osz` or temporary files, and is unavailable while downloads are active.
 * Unneeded `.part` files and their corresponding `.json` metadata can be manually removed after closing the program.
 
 Queue and settings are stored by default at:
