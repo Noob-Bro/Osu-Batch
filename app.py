@@ -94,7 +94,7 @@ class SessionDialog(QDialog):
 class Window(QMainWindow):
     def __init__(self, data_dir: Path):
         super().__init__()
-        self.setWindowTitle("osu! Batch 1.1 · 谱面批量下载")
+        self.setWindowTitle("osu! Batch 1.1.1 · 谱面批量下载")
         available = self.screen().availableGeometry()
         self.resize(min(1120, available.width() - 40), min(800, available.height() - 80))
         self.store = Store(data_dir)
@@ -236,6 +236,9 @@ class Window(QMainWindow):
         remove = QPushButton("移除选中记录")
         remove.clicked.connect(self.remove_selected)
         actions.addWidget(remove)
+        self.clear_records_button = QPushButton("清除所有下载记录")
+        self.clear_records_button.clicked.connect(self.clear_all_records)
+        actions.addWidget(self.clear_records_button)
         actions.addStretch()
         export = QPushButton("导出失败清单")
         export.clicked.connect(self.export_failed)
@@ -493,6 +496,24 @@ class Window(QMainWindow):
         self.reload()
         self.notice.setText("已移除未运行的选中记录；下载文件和临时文件仍保留在保存目录。")
 
+    def clear_all_records(self):
+        if not self.tasks:
+            self.notice.setText("当前没有下载记录。")
+            return
+        answer = QMessageBox.question(
+            self,
+            "清除所有下载记录",
+            f"确定清除全部 {len(self.tasks)} 条下载记录吗？\n\n"
+            "此操作不会删除已下载的 .osz 文件或临时文件。",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self.store.clear_tasks()
+        self.reload()
+        self.notice.setText("已清除所有下载记录；下载文件和临时文件仍保留在保存目录。")
+
     def export_failed(self):
         ids = [sid for sid, t in self.tasks.items() if t["status"] == "失败"]
         if not ids:
@@ -513,6 +534,7 @@ class Window(QMainWindow):
         self.source_changed()
         self.start_button.setEnabled(idle and not self.closing)
         self.retry_button.setEnabled(idle and not self.closing)
+        self.clear_records_button.setEnabled(idle and not self.closing)
         self.pause_button.setEnabled(bool(self.active) and self.running)
 
     def closeEvent(self, event):
