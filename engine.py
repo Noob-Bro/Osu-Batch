@@ -21,7 +21,7 @@ MIRRORS = {"Nerinyan": "https://api.nerinyan.moe/d/{id}",
            "Mino (catboy.best)": "https://catboy.best/d/{id}",
            "Sayobot 小夜": "https://txy1.sayobot.cn/beatmaps/download/full/{id}"}
 MAX_FILE = 2 * 1024**3
-USER_AGENT = "OsuBatch/1.1 (personal desktop beatmap downloader)"
+USER_AGENT = "OsuBatch/1.1.1 (personal desktop beatmap downloader)"
 
 
 def parse_input(text: str) -> tuple[list[int], list[str]]:
