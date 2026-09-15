@@ -53,6 +53,16 @@ def test_queue_import_and_cancel(window):
     assert list(window.tasks) == [456]
 
 
+def test_clear_all_download_records(window, monkeypatch):
+    window.input.setPlainText("123 456")
+    window.add_input()
+    monkeypatch.setattr(QMessageBox, "question", lambda *args, **kwargs: QMessageBox.StandardButton.Yes)
+    window.clear_all_records()
+    assert not window.tasks
+    assert window.store.rows() == []
+    assert "已清除所有下载记录" in window.notice.text()
+
+
 def test_mirror_video_options(window):
     window.no_video.setChecked(True)
     window.mirror.setCurrentIndex(1)
