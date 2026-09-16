@@ -117,6 +117,9 @@ Sayobot 小夜|Sayobot
 保存位置|Save location
 选择目录|Browse
 打开目录|Open folder
+osu! Songs 目录|osu! Songs folder
+选择 Songs 目录|Choose Songs folder
+检测 osu! 本地歌曲|Detect local osu! songs
 ＋ 加入队列|+ Add to queue
 导入 TXT|Import TXT
 筛选搜索 / 批量下载|Filter / batch download
@@ -147,10 +150,18 @@ Sayobot 小夜|Sayobot
  条下载记录吗？| download records?
 此操作不会删除已下载的 .osz 文件或临时文件。|Downloaded .osz files and partial files will not be deleted.
 已清除所有下载记录；下载文件和临时文件仍保留在保存目录。|Cleared all download records. Downloads and partial files are kept.
+在 osu! Songs 曲库中检测到该谱面集：|Beatmapset found in the osu! Songs library: 
+请选择 osu! Songs 目录。|Choose the osu! Songs folder.
+osu! Songs 目录不存在或无法访问。|The osu! Songs folder does not exist or cannot be accessed.
+正在检测 osu! 本地歌曲；扫描只读取文件，不会修改曲库…|Detecting local osu! songs. The scan is read-only and will not modify the library…
+检测本地歌曲时发生错误，请检查 Songs 目录权限。|An error occurred while detecting local songs. Check the Songs folder permissions.
+已检测 osu! 本地歌曲：|Local osu! songs detected: 
+ 条队列记录已存在。| queued records already exist.
 当前没有失败任务。|There are no failed tasks.
 导出失败|Export failed
 无法写入所选文件。|Cannot write to the selected file.
 正在保存队列并结束下载，请稍候…|Saving queue and stopping downloads, please wait…
+正在保存队列并结束后台任务，请稍候…|Saving the queue and stopping background tasks, please wait…
 工具已在运行，请使用已打开的窗口。|The application is already running. Use its existing window.
 已完成|Completed
 失败|Failed
