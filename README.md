@@ -11,7 +11,7 @@
 >
 > Verify the download source, scan the files if necessary, or review the source code and build the application yourself if you have concerns.
 
-This repository contains **osu! Batch 1.1.1 (2026-09-15)** with the UI fixes, Chinese/English language switching, and advanced filtering features.
+This repository contains **osu! Batch 1.1.1 (2026-09-16)** with the UI fixes, Chinese/English language switching, and advanced filtering features.
 
 The source code is located in the repository root. The portable Windows x64 build is available from **Releases**. Extract the entire archive before running `OsuBatch.exe`.
 
