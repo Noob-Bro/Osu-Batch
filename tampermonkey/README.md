@@ -22,6 +22,7 @@ This branch contains a browser userscript version of osu! Batch. It runs on `htt
 - Exact artist matching after normalising Unicode width and letter case.
 - Import osu!stable's `osu!.db` locally and detect installed beatmapsets by BeatmapSet ID. Matching rows in the queue and links on osu! webpages are highlighted pale green.
 - Persistent download queue, pause/resume, configurable spacing, and completed/failed states.
+- Edge/Chrome direct-folder mode: choose a destination folder once, then save the complete queue there without one browser confirmation per file.
 - Official downloads use the current browser login session; the script never asks for or stores an `osu_session` cookie.
 - Optional Sayobot, Nerinyan, and Mino download sources. Mirrors are always selected explicitly.
 
@@ -35,10 +36,16 @@ Click **Load osu!.db**, then select the stable database. Its usual location is:
 
 The browser requires this explicit file selection and cannot silently open that path. Parsing happens entirely inside the browser tab; the database is not uploaded. The extracted BeatmapSet IDs are kept in Tampermonkey storage so the green markers remain available after a refresh. Reload the file after installing or deleting beatmaps to refresh the index.
 
+## Unattended batch downloads
+
+Keep **Save method** set to **Choose folder once (recommended)**. When **Start / resume** is clicked, Edge or Chrome asks for a destination directory once. After permission is granted, official downloads are streamed directly into individual `.osz` files in that directory. Mirror downloads use the same folder but are buffered one file at a time because they require Tampermonkey's cross-origin request API.
+
+The directory handle is retained for the current page session. After reloading the osu! page, choose the directory again. **Browser downloads** remains available as a compatibility mode.
+
 ## Important differences from the desktop build
 
 - Browsers may ask for permission before allowing multiple downloads. Tampermonkey's download permission must be enabled.
-- Some Tampermonkey configurations reject the `.osz` extension with `not_whitelisted`. Version 0.2.1 automatically retries those cases through the browser's native download path. Adding `osz` to Tampermonkey's download file-extension whitelist remains the most reliable option for very large batches.
+- Some Tampermonkey configurations reject the `.osz` extension with `not_whitelisted`. Direct-folder mode bypasses this restriction. Browser-download mode retries those cases through the browser's native download path; alternatively add `osz` to Tampermonkey's download file-extension whitelist.
 - The userscript cannot safely provide partial-file resume, ZIP CRC validation, or verify the downloaded `.osz` contents without buffering large files in browser memory.
 - osu!stable is supported through user-selected `osu!.db`. The script still cannot silently watch the `Songs` directory, and osu!lazer's `client.realm` is not supported yet.
 - Queue state is Tampermonkey extension storage, not the desktop SQLite queue.
