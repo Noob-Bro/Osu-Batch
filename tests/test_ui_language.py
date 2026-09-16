@@ -16,6 +16,7 @@ def window(tmp_path):
     application.setPalette(dark_palette())
     application.setStyleSheet(STYLE)
     w = Window(tmp_path)
+    w.language.setCurrentIndex(0)
     yield w
     w.close()
     i18n.set_language('zh')
