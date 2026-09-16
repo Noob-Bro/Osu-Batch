@@ -2,7 +2,7 @@
 // @name         osu! Batch Web
 // @name:zh-CN   osu! Batch 网页版
 // @namespace    https://github.com/Noob-Bro/Osu-Batch
-// @version      0.2.0
+// @version      0.2.1
 // @description  Batch-search and download osu! beatmapsets from osu.ppy.sh.
 // @description:zh-CN 在 osu! 官网筛选、收集并批量下载谱面集。
 // @author       Noob-Bro
@@ -54,7 +54,7 @@
         ['default', 'Website default', '网站默认'], ['title', 'Title', '歌名'], ['titleRomanized', 'Title (romanized)', '歌名（罗马字）'],
         ['artist', 'Artist', '艺术家'], ['artistRomanized', 'Artist (romanized)', '艺术家（罗马字）'], ['source', 'Source', '来源'],
         ['creator', 'Mapper', '谱师'], ['status', 'Status', '状态'], ['submitted', 'Submitted', '提交日期'],
-        ['updated', 'Updated', '更新日期'], ['statusChanged', 'Status changed', '状态变更日期'], ['mode', 'Mode', '模式'],
+        ['updated', 'Updated', '更新日期'], ['statusChanged', 'Ranked/approved date', '上架/达标日期'], ['mode', 'Mode', '模式'],
         ['bpm', 'BPM', 'BPM'], ['length', 'Length', '时长'], ['difficulty', 'Stars', '星数'],
     ];
     const TEXT = {
@@ -67,14 +67,17 @@
             genre: 'Genre', language: 'Language', bpmMin: 'Min BPM', bpmMax: 'Max BPM',
             lengthMin: 'Min length (s)', lengthMax: 'Max length (s)', difficultyMin: 'Min stars', difficultyMax: 'Max stars',
             submittedFrom: 'Submitted from', submittedTo: 'Submitted to', updatedFrom: 'Updated from', updatedTo: 'Updated to',
-            statusChangedFrom: 'Status changed from', statusChangedTo: 'Status changed to',
+            statusChangedFrom: 'Ranked/approved from', statusChangedTo: 'Ranked/approved to',
             sortField: 'Sort by', sortDescending: 'Descending', advanced: 'Advanced filters',
             start: 'Start / resume', pause: 'Pause', clearDone: 'Clear completed', clearAll: 'Clear all',
             id: 'ID', metadata: 'Beatmapset', state: 'State', waiting: 'Waiting', downloading: 'Downloading',
             completed: 'Completed', failed: 'Failed', paused: 'Paused', queueEmpty: 'Queue is empty.',
             added: n => `Added ${n} beatmapset(s).`, invalid: n => `${n} invalid token(s) ignored.`,
             collected: n => `Collected ${n} beatmapset(s) from this page.`, searching: (p, n) => `Reading page ${p}; ${n} unique result(s).`,
-            searchDone: n => `Search complete: ${n} beatmapset(s) added.`, login: 'Official download uses your current osu! website session.',
+            searchDone: n => `Search complete: ${n} beatmapset(s) found. Select the ones to add to the download queue.`, login: 'Official download uses your current osu! website session.',
+            searchResults: 'Search results', selectAll: 'Select all', selectNone: 'Select none', addSelected: 'Add selected',
+            selectedCount: (selected, total) => `${selected}/${total} selected`, previous: 'Previous', next: 'Next',
+            resultPage: (page, pages) => `Page ${page}/${pages}`, nativeFallback: 'Tampermonkey blocked .osz; started with the browser download instead.',
             browserLimit: 'Your browser may ask for permission to allow multiple downloads.',
             localLimit: 'For security, select osu!.db manually. It is parsed locally and is never uploaded. osu!lazer client.realm is not supported yet.',
             loadDb: 'Load osu!.db', clearDb: 'Clear local library', local: 'Already local',
@@ -94,14 +97,17 @@
             genre: '曲风', language: '语言', bpmMin: '最低 BPM', bpmMax: '最高 BPM',
             lengthMin: '最短时长（秒）', lengthMax: '最长时长（秒）', difficultyMin: '最低星数', difficultyMax: '最高星数',
             submittedFrom: '提交日期起', submittedTo: '提交日期止', updatedFrom: '更新日期起', updatedTo: '更新日期止',
-            statusChangedFrom: '状态变更日期起', statusChangedTo: '状态变更日期止',
+            statusChangedFrom: '上架/达标日期起', statusChangedTo: '上架/达标日期止',
             sortField: '排序字段', sortDescending: '降序', advanced: '高级筛选',
             start: '开始 / 继续', pause: '暂停', clearDone: '清除已完成', clearAll: '清除全部',
             id: 'ID', metadata: '谱面集', state: '状态', waiting: '等待', downloading: '下载中',
             completed: '已完成', failed: '失败', paused: '已暂停', queueEmpty: '队列为空。',
             added: n => `已加入 ${n} 个谱面集。`, invalid: n => `已忽略 ${n} 个无效输入。`,
             collected: n => `已从当前页面收集 ${n} 个谱面集。`, searching: (p, n) => `正在读取第 ${p} 页；已有 ${n} 个不重复结果。`,
-            searchDone: n => `搜索完成：加入 ${n} 个谱面集。`, login: '官方下载使用当前 osu! 网页登录会话。',
+            searchDone: n => `搜索完成：找到 ${n} 个谱面集。请勾选需要加入下载队列的歌曲。`, login: '官方下载使用当前 osu! 网页登录会话。',
+            searchResults: '筛选结果', selectAll: '全选', selectNone: '全不选', addSelected: '加入已选项',
+            selectedCount: (selected, total) => `已选 ${selected}/${total}`, previous: '上一页', next: '下一页',
+            resultPage: (page, pages) => `第 ${page}/${pages} 页`, nativeFallback: 'Tampermonkey 拦截了 .osz，已改用浏览器原生下载。',
             browserLimit: '浏览器可能询问是否允许连续下载多个文件。',
             localLimit: '受浏览器安全限制，需手动选择 osu!.db；文件只在本地解析，不会上传。暂不支持 osu!lazer client.realm。',
             loadDb: '载入 osu!.db', clearDb: '清除本地曲库', local: '本地已有',
@@ -288,7 +294,10 @@
         // osu!web treats legacy Approved as a structured query term rather
         // than a value accepted by the `s` parameter.
         if (status === 'approved') { query.push('status=approved'); status = 'any'; }
-        const params = new URLSearchParams({ q: query.join(' '), s: status, sort: 'ranked_asc', nsfw: 'true' });
+        let sort = 'ranked_asc';
+        if (filters.sortField === 'statusChanged') sort = `ranked_${filters.sortDescending ? 'desc' : 'asc'}`;
+        else if (filters.sortField === 'updated') sort = `updated_${filters.sortDescending ? 'desc' : 'asc'}`;
+        const params = new URLSearchParams({ q: query.join(' '), s: status, sort, nsfw: 'true' });
         if (filters.mode !== '' && filters.mode != null) params.set('m', String(filters.mode));
         if (filters.genre !== '' && filters.genre != null) params.set('g', String(filters.genre));
         if (filters.language !== '' && filters.language != null) params.set('l', String(filters.language));
@@ -359,9 +368,12 @@
             inRange(item.length, filters.lengthMin, filters.lengthMax) &&
             inRange(item.stars, filters.difficultyMin, filters.difficultyMax));
         if (!matchingBeatmaps.length) return false;
-        if (!dateInRange(row.submittedDate, filters.submittedFrom, filters.submittedTo)) return false;
-        if (!dateInRange(row.updatedDate, filters.updatedFrom, filters.updatedTo)) return false;
-        if (!dateInRange(row.statusChangedDate, filters.statusChangedFrom, filters.statusChangedTo)) return false;
+        // The website search endpoint already applies date query terms. Some
+        // response shapes omit these dates, so only double-check a value when
+        // the server actually returned it.
+        if (row.submittedDate && !dateInRange(row.submittedDate, filters.submittedFrom, filters.submittedTo)) return false;
+        if (row.updatedDate && !dateInRange(row.updatedDate, filters.updatedFrom, filters.updatedTo)) return false;
+        if (row.statusChangedDate && !dateInRange(row.statusChangedDate, filters.statusChangedFrom, filters.statusChangedTo)) return false;
         return true;
     }
 
@@ -411,6 +423,10 @@
         let activeDownload = null;
         let notice = '';
         let localIds = new Set(state.localSetIds);
+        let searchResults = [];
+        let selectedResults = new Set();
+        let resultPage = 0;
+        const resultPageSize = 100;
 
         function defaults() {
             return {
@@ -453,7 +469,7 @@
             #obw-panel *{box-sizing:border-box}#obw-panel header{display:flex;align-items:center;gap:8px;position:sticky;top:0;background:#292c3e;padding:12px;z-index:2}#obw-panel h2{font-size:18px;margin:0;flex:1}
             #obw-panel button,#obw-panel select,#obw-panel input,#obw-panel textarea{background:#303449;color:#f5f4f8;border:1px solid #5c6079;border-radius:6px;padding:7px}#obw-panel button{cursor:pointer}#obw-panel button.primary{background:#b84f91;border-color:#d972b0}#obw-panel button:disabled{opacity:.5;cursor:not-allowed}
             .obw-body{padding:12px}.obw-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.obw-grid label{display:flex;flex-direction:column;gap:3px}.obw-grid .wide{grid-column:span 2}.obw-row{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:9px 0}.obw-row textarea{min-height:64px;flex:1 1 360px;resize:vertical}.obw-note{color:#b9bdd0;margin:6px 0}.obw-warn{color:#f0c57a}.obw-state{min-height:20px;color:#8de0b5}.obw-advanced{margin:9px 0;border:1px solid #454a62;border-radius:7px;padding:7px}.obw-advanced summary{cursor:pointer;font-weight:700;margin-bottom:7px}
-            .obw-table{width:100%;border-collapse:collapse;margin-top:8px}.obw-table th,.obw-table td{padding:6px;border-bottom:1px solid #3d4156;text-align:left}.obw-table tr.done{background:#315743}.obw-table tr.local:not(.done){background:#405b4a}.obw-table tr.failed{background:#572f3a}.obw-table a{color:#f0a5d0}.obw-check{flex-direction:row!important;align-items:center;margin-top:21px}.obw-count{margin-left:auto;color:#aeb2c5}a.obw-local-link{background:rgba(115,205,145,.2)!important;outline:2px solid rgba(115,205,145,.45);border-radius:4px}@media(max-width:650px){.obw-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+            .obw-table{width:100%;border-collapse:collapse;margin-top:8px}.obw-table th,.obw-table td{padding:6px;border-bottom:1px solid #3d4156;text-align:left}.obw-table tr.done{background:#315743}.obw-table tr.local:not(.done){background:#405b4a}.obw-table tr.failed{background:#572f3a}.obw-table a{color:#f0a5d0}.obw-results{border:1px solid #53576f;border-radius:8px;padding:8px;margin:10px 0}.obw-results h3{margin:0 0 5px;font-size:15px}.obw-result-check{width:17px;height:17px}.obw-check{flex-direction:row!important;align-items:center;margin-top:21px}.obw-count{margin-left:auto;color:#aeb2c5}a.obw-local-link{background:rgba(115,205,145,.2)!important;outline:2px solid rgba(115,205,145,.45);border-radius:4px}@media(max-width:650px){.obw-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
         `);
 
         const launcher = document.createElement('button');
@@ -490,10 +506,23 @@
             return `<tr class="${classes}"><td><a href="https://osu.ppy.sh/beatmapsets/${item.sid}" target="_blank" rel="noopener">${item.sid}</a></td><td title="${escapeHtml(item.message || '')}">${escapeHtml(meta)}</td><td>${isLocal ? `${escapeHtml(tr('local'))} · ` : ''}${escapeHtml(label)}</td></tr>`;
         }
 
+        function resultRow(item) {
+            const isLocal = localIds.has(item.sid);
+            const meta = [item.artist, item.title].filter(Boolean).join(' — ') || '—';
+            return `<tr class="${isLocal ? 'local' : ''}"><td><input class="obw-result-check" type="checkbox" data-result-id="${item.sid}" ${selectedResults.has(item.sid) ? 'checked' : ''}></td><td><a href="https://osu.ppy.sh/beatmapsets/${item.sid}" target="_blank" rel="noopener">${item.sid}</a></td><td>${escapeHtml(meta)}</td><td>${isLocal ? escapeHtml(tr('local')) : escapeHtml(item.status)}</td></tr>`;
+        }
+
         function render() {
             launcher.textContent = tr('show');
             const f = state.filters;
             const shown = state.queue.slice(0, 300);
+            const resultPages = Math.max(1, Math.ceil(searchResults.length / resultPageSize));
+            resultPage = Math.max(0, Math.min(resultPage, resultPages - 1));
+            const resultSlice = searchResults.slice(resultPage * resultPageSize, (resultPage + 1) * resultPageSize);
+            const resultPanel = searchResults.length ? `<section class="obw-results"><h3>${tr('searchResults')}</h3>
+                <div class="obw-row"><button data-action="selectAll">${tr('selectAll')}</button><button data-action="selectNone">${tr('selectNone')}</button><button data-action="addSelected" class="primary" ${selectedResults.size ? '' : 'disabled'}>${tr('addSelected')}</button><span id="obw-selected-count">${tr('selectedCount', selectedResults.size, searchResults.length)}</span></div>
+                <table class="obw-table"><thead><tr><th></th><th>${tr('id')}</th><th>${tr('metadata')}</th><th>${tr('state')}</th></tr></thead><tbody>${resultSlice.map(resultRow).join('')}</tbody></table>
+                <div class="obw-row"><button data-action="resultPrev" ${resultPage === 0 ? 'disabled' : ''}>${tr('previous')}</button><span>${tr('resultPage', resultPage + 1, resultPages)}</span><button data-action="resultNext" ${resultPage + 1 >= resultPages ? 'disabled' : ''}>${tr('next')}</button></div></section>` : '';
             panel.innerHTML = `
                 <header><h2>${tr('title')}</h2><button data-action="lang">${tr('lang')}</button><button data-action="hide">${tr('hide')}</button></header>
                 <div class="obw-body">
@@ -535,6 +564,7 @@
                     <div class="obw-row"><button data-action="start" class="primary" ${running || searching ? 'disabled' : ''}>${tr('start')}</button><button data-action="pause" ${!running ? 'disabled' : ''}>${tr('pause')}</button><button data-action="clearDone" ${running || searching ? 'disabled' : ''}>${tr('clearDone')}</button><button data-action="clearAll" ${running || searching ? 'disabled' : ''}>${tr('clearAll')}</button><span class="obw-count">${state.queue.length}</span></div>
                     <div class="obw-row"><button data-action="loadDb">${tr('loadDb')}</button><button data-action="clearDb" ${state.localSetIds.length ? '' : 'disabled'}>${tr('clearDb')}</button><span>${state.localSetIds.length ? `${state.localSetIds.length} ${tr('metadata')}` : ''}</span><input id="obw-db-file" type="file" accept=".db,application/octet-stream" hidden></div>
                     <div class="obw-note">${tr('login')} ${tr('browserLimit')}</div><div class="obw-note obw-warn">${tr('localLimit')}</div><div class="obw-state">${escapeHtml(notice)}</div>
+                    ${resultPanel}
                     ${shown.length ? `<table class="obw-table"><thead><tr><th>${tr('id')}</th><th>${tr('metadata')}</th><th>${tr('state')}</th></tr></thead><tbody>${shown.map(queueRow).join('')}</tbody></table>` : `<p>${tr('queueEmpty')}</p>`}
                 </div>`;
             applyLocalHighlights();
@@ -555,7 +585,8 @@
 
         async function officialSearch() {
             if (searching) return;
-            syncControls(); searching = true; stopRequested = false; render();
+            syncControls(); searching = true; stopRequested = false;
+            searchResults = []; selectedResults = new Set(); resultPage = 0; render();
             const seen = new Set(); const matches = []; let cursor = null; let page = 0;
             try {
                 do {
@@ -574,8 +605,9 @@
                     if (page >= 200) throw new Error('Search stopped at the 200-page safety limit');
                     if (cursor) await delay(800);
                 } while (cursor);
-                const added = addRecords(sortRecords(matches, state.filters.sortField, Boolean(state.filters.sortDescending)));
-                notice = tr('searchDone', added);
+                searchResults = sortRecords(matches, state.filters.sortField, Boolean(state.filters.sortDescending));
+                selectedResults = new Set(searchResults.map(item => item.sid));
+                notice = tr('searchDone', searchResults.length);
             } catch (error) { notice = error && error.message ? error.message : String(error); }
             finally { searching = false; stopRequested = false; render(); }
         }
@@ -595,13 +627,26 @@
             const url = downloadUrl(state.source, item.sid, state.noVideo);
             const filename = `${item.sid}${state.noVideo ? '-novideo' : ''}.osz`;
             return new Promise((resolve, reject) => {
-                activeDownload = GM_download({
-                    url, name: filename, saveAs: false, anonymous: false,
-                    headers: state.source === 'official' ? { Referer: `https://osu.ppy.sh/beatmapsets/${item.sid}` } : {},
-                    onload: () => { activeDownload = null; resolve(); },
-                    onerror: error => { activeDownload = null; reject(new Error(error && (error.details || error.error) || 'Download failed')); },
-                    ontimeout: () => { activeDownload = null; reject(new Error('Download timed out')); },
-                });
+                const fallback = () => {
+                    const frame = document.createElement('iframe');
+                    frame.hidden = true; frame.src = url; document.body.appendChild(frame);
+                    setTimeout(() => frame.remove(), 60000);
+                    resolve(true);
+                };
+                const fail = error => {
+                    activeDownload = null;
+                    const reason = String(error && (error.details || error.error || error.message) || 'Download failed');
+                    if (/not_whitelisted/i.test(reason)) fallback(); else reject(new Error(reason));
+                };
+                try {
+                    activeDownload = GM_download({
+                        url, name: filename, saveAs: false, anonymous: false,
+                        headers: state.source === 'official' ? { Referer: `https://osu.ppy.sh/beatmapsets/${item.sid}` } : {},
+                        onload: () => { activeDownload = null; resolve(false); },
+                        onerror: fail,
+                        ontimeout: () => { activeDownload = null; reject(new Error('Download timed out')); },
+                    });
+                } catch (error) { fail(error); }
             });
         }
 
@@ -633,7 +678,11 @@
                 if (!running || stopRequested) break;
                 if (item.status === 'done') continue;
                 item.status = 'downloading'; item.message = ''; saveState(); render();
-                try { await gmDownload(item); item.status = 'done'; }
+                try {
+                    const usedFallback = await gmDownload(item);
+                    item.status = 'done';
+                    if (usedFallback) item.message = tr('nativeFallback');
+                }
                 catch (error) { item.status = stopRequested ? 'paused' : 'failed'; item.message = error.message || String(error); }
                 saveState(); render();
                 if (!stopRequested) await delay(state.interval * 1000);
@@ -643,6 +692,14 @@
 
         panel.addEventListener('change', event => {
             if (event.target.matches('#obw-db-file')) loadLocalDatabase(event.target.files && event.target.files[0]);
+            else if (event.target.matches('[data-result-id]')) {
+                const sid = Number(event.target.dataset.resultId);
+                if (event.target.checked) selectedResults.add(sid); else selectedResults.delete(sid);
+                const count = panel.querySelector('#obw-selected-count');
+                if (count) count.textContent = tr('selectedCount', selectedResults.size, searchResults.length);
+                const addButton = panel.querySelector('button[data-action="addSelected"]');
+                if (addButton) addButton.disabled = selectedResults.size === 0;
+            }
             else if (event.target.matches('[data-field],[data-setting]')) syncControls();
         });
         panel.addEventListener('click', async event => {
@@ -655,6 +712,14 @@
             else if (action === 'clearDb') {
                 state.localSetIds = []; localIds = new Set(); saveState(); notice = tr('dbCleared'); render();
             }
+            else if (action === 'selectAll') { selectedResults = new Set(searchResults.map(item => item.sid)); render(); }
+            else if (action === 'selectNone') { selectedResults = new Set(); render(); }
+            else if (action === 'addSelected') {
+                const count = addRecords(searchResults.filter(item => selectedResults.has(item.sid)));
+                notice = tr('added', count); render();
+            }
+            else if (action === 'resultPrev') { resultPage = Math.max(0, resultPage - 1); render(); }
+            else if (action === 'resultNext') { resultPage += 1; render(); }
             else if (action === 'add') {
                 const parsed = parseInput(panel.querySelector('#obw-input').value);
                 const count = addRecords(parsed.ids);
