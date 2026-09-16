@@ -4,7 +4,7 @@ from PySide6 import QtWidgets as W
 from PySide6.QtCore import QLocale, QSignalBlocker
 from shiboken6 import isValid
 
-language = 'zh'
+language = 'en'
 _widgets = weakref.WeakSet()
 EN = dict(line.split('|', 1) for line in '''
 选择日期|Choose date
@@ -120,6 +120,11 @@ Sayobot 小夜|Sayobot
 osu! Songs 目录|osu! Songs folder
 选择 Songs 目录|Choose Songs folder
 检测 osu! 本地歌曲|Detect local osu! songs
+请先完成筛选搜索。|Complete a filter search first.
+正在检测筛选结果中的 osu! 本地歌曲；扫描只读取文件，不会修改曲库…|Detecting local osu! songs in the filter results. The scan is read-only and will not modify the library…
+已检测筛选结果中的 osu! 本地歌曲：|Local osu! songs detected in filter results: 
+ 条结果已存在。| results already exist.
+正在结束本地歌曲检测，请稍候…|Stopping local song detection, please wait…
 ＋ 加入队列|+ Add to queue
 导入 TXT|Import TXT
 筛选搜索 / 批量下载|Filter / batch download
@@ -330,7 +335,7 @@ def tr(text):
 
 def set_language(value):
     global language
-    language = value if value in ('zh', 'en') else 'zh'
+    language = value if value in ('zh', 'en') else 'en'
     locale = QLocale('zh_CN' if language == 'zh' else 'en_US')
     QLocale.setDefault(locale)
     for widget in list(_widgets):
