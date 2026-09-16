@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -26,6 +27,7 @@ from i18n import (QLabel, QPushButton, QCheckBox, QMainWindow, QDialog,
 
 MODES = {"仅官方（默认）": "official", "官方优先，失败后尝试所选镜像": "fallback", "仅所选镜像": "mirror"}
 STATUS_COLORS = {"已完成": "#77dfaf", "失败": "#ff899c", "下载中": "#f5a6d5", "已暂停": "#edc77f"}
+LOCAL_SONG_BACKGROUND = "#315743"
 
 
 def size(n):
@@ -38,6 +40,7 @@ def size(n):
 class Events(QObject):
     progress = Signal(int, str, object, object, float, str)
     result = Signal(int, str, str, str, str)
+    local_scan = Signal(object, str)
 
 
 class SessionDialog(QDialog):
@@ -103,7 +106,9 @@ class Window(QMainWindow):
         self.events = Events()
         self.events.progress.connect(self.on_progress)
         self.events.result.connect(self.on_result)
+        self.events.local_scan.connect(self.finished_local_scan)
         self.active, self.reasons, self.tasks, self.cells, self.speeds = {}, {}, {}, {}, {}
+        self.local_songs, self.local_scan_running = {}, False
         self.cookie = ""
         self.running, self.closing = False, False
         self.batch_options = None
@@ -174,6 +179,19 @@ class Window(QMainWindow):
         open_folder.clicked.connect(self.open_directory)
         path_row.addWidget(open_folder)
         config_layout.addLayout(path_row)
+        songs_row = QHBoxLayout()
+        songs_row.addWidget(QLabel("osu! Songs 目录"))
+        default_songs = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "osu!" / "Songs"
+        self.songs_directory = QLineEdit(settings.get("songs_directory", str(default_songs)))
+        self.songs_directory.editingFinished.connect(self.local_songs_directory_changed)
+        songs_row.addWidget(self.songs_directory, 1)
+        self.songs_browse = QPushButton("选择 Songs 目录")
+        self.songs_browse.clicked.connect(self.pick_songs_directory)
+        songs_row.addWidget(self.songs_browse)
+        self.local_scan_button = QPushButton("检测 osu! 本地歌曲")
+        self.local_scan_button.clicked.connect(self.scan_local_songs)
+        songs_row.addWidget(self.local_scan_button)
+        config_layout.addLayout(songs_row)
         self.source_note = QLabel()
         self.source_note.setWordWrap(True)
         self.source_note.setStyleSheet("color:#a6acc2;font-size:12px")
@@ -285,7 +303,112 @@ class Window(QMainWindow):
         self.stats()
 
     def paint(self, sid):
-        self.table.item(self.cells[sid], 1).setForeground(QColor(STATUS_COLORS.get(self.tasks[sid]["status"], "#a6acc2")))
+        row = self.cells[sid]
+        self.table.item(row, 1).setForeground(QColor(STATUS_COLORS.get(self.tasks[sid]["status"], "#a6acc2")))
+        local_path = self.local_songs.get(sid)
+        for col in range(self.table.columnCount()):
+            item = self.table.item(row, col)
+            if local_path:
+                item.setBackground(QColor(LOCAL_SONG_BACKGROUND))
+            else:
+                item.setData(Qt.ItemDataRole.BackgroundRole, None)
+        if local_path:
+            self.table.item(row, 0).setToolTip(tr("在 osu! Songs 曲库中检测到该谱面集：") + str(local_path))
+        else:
+            self.table.item(row, 0).setToolTip("")
+        return local_path
+
+    @staticmethod
+    def find_local_songs(folder, targets):
+        """Find queued beatmapsets in an osu!stable Songs folder without modifying it."""
+        targets, found = set(targets), {}
+        if not targets:
+            return found
+        try:
+            directories = [path for path in folder.iterdir() if path.is_dir()]
+        except OSError:
+            return found
+        for directory in directories:
+            match = re.match(r"^\s*(\d+)(?:\s|$)", directory.name)
+            if match and int(match.group(1)) in targets:
+                found[int(match.group(1))] = str(directory)
+        remaining = targets - found.keys()
+        if not remaining:
+            return found
+        for directory in directories:
+            if not remaining:
+                break
+            try:
+                maps = directory.rglob("*.osu")
+            except OSError:
+                continue
+            for map_path in maps:
+                try:
+                    content = map_path.read_bytes()[:2 * 1024 * 1024].decode("utf-8-sig", errors="replace")
+                except OSError:
+                    continue
+                match = re.search(r"(?m)^BeatmapSetID\s*:\s*(-?\d+)\s*$", content)
+                if match and int(match.group(1)) in remaining:
+                    sid = int(match.group(1))
+                    found[sid] = str(directory)
+                    remaining.remove(sid)
+                    break
+        return found
+
+    def local_songs_directory_changed(self):
+        self.local_songs = {}
+        for sid in self.tasks:
+            self.paint(sid)
+
+    def pick_songs_directory(self):
+        value = QFileDialog.getExistingDirectory(self, "选择 osu! Songs 目录", self.songs_directory.text())
+        if value:
+            self.songs_directory.setText(value)
+            self.local_songs_directory_changed()
+
+    def scan_local_songs(self):
+        if self.local_scan_running:
+            return
+        folder_text = self.songs_directory.text().strip()
+        if not folder_text:
+            self.notice.setText("请选择 osu! Songs 目录。")
+            return
+        folder = Path(folder_text).expanduser()
+        if not folder.is_dir():
+            self.notice.setText("osu! Songs 目录不存在或无法访问。")
+            return
+        targets = set(self.tasks)
+        self.local_scan_running = True
+        self.local_scan_button.setEnabled(False)
+        self.songs_directory.setEnabled(False)
+        self.songs_browse.setEnabled(False)
+        self.notice.setText("正在检测 osu! 本地歌曲；扫描只读取文件，不会修改曲库…")
+
+        def worker():
+            try:
+                self.events.local_scan.emit(self.find_local_songs(folder, targets), "")
+            except Exception:
+                self.events.local_scan.emit({}, "检测本地歌曲时发生错误，请检查 Songs 目录权限。")
+
+        self.pool.submit(worker)
+
+    def finished_local_scan(self, found, error):
+        self.local_scan_running = False
+        enabled = not self.closing
+        self.local_scan_button.setEnabled(enabled)
+        self.songs_directory.setEnabled(enabled)
+        self.songs_browse.setEnabled(enabled)
+        if error:
+            self.notice.setText(error)
+            if self.closing:
+                self.close()
+            return
+        self.local_songs = dict(found)
+        for sid in self.tasks:
+            self.paint(sid)
+        self.notice.setText(f"已检测 osu! 本地歌曲：{len(self.local_songs)} / {len(self.tasks)} 条队列记录已存在。")
+        if self.closing:
+            self.close()
 
     def stats(self):
         total = len(self.tasks)
@@ -296,7 +419,8 @@ class Window(QMainWindow):
         self.total_progress.setValue(done)
 
     def settings(self):
-        return dict(language=i18n.language, directory=self.directory.text().strip(), mode=MODES[self.mode.currentText()],
+        return dict(language=i18n.language, directory=self.directory.text().strip(),
+                    songs_directory=self.songs_directory.text().strip(), mode=MODES[self.mode.currentText()],
                     mirror=self.mirror.currentText(), no_video=self.no_video.isChecked(),
                     concurrency=self.concurrency.value())
 
@@ -536,13 +660,18 @@ class Window(QMainWindow):
         self.retry_button.setEnabled(idle and not self.closing)
         self.clear_records_button.setEnabled(idle and not self.closing)
         self.pause_button.setEnabled(bool(self.active) and self.running)
+        scan_idle = not self.local_scan_running and not self.closing
+        self.local_scan_button.setEnabled(scan_idle)
+        self.songs_directory.setEnabled(scan_idle)
+        self.songs_browse.setEnabled(scan_idle)
 
     def closeEvent(self, event):
-        if self.active:
+        if self.active or self.local_scan_running:
             self.closing = True
-            self.pause()
+            if self.active:
+                self.pause()
             self.centralWidget().setEnabled(False)
-            self.notice.setText("正在保存队列并结束下载，请稍候…")
+            self.notice.setText("正在保存队列并结束后台任务，请稍候…")
             event.ignore()
             return
         self.store.save_settings(self.settings())
