@@ -4,9 +4,10 @@ from pathlib import Path
 
 import httpx
 import pytest
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from app import Window, STYLE
+from app import LOCAL_SONG_BACKGROUND, Window, STYLE
 from engine import Downloader, RateGate, Stopped
 
 
@@ -61,6 +62,54 @@ def test_clear_all_download_records(window, monkeypatch):
     assert not window.tasks
     assert window.store.rows() == []
     assert "已清除所有下载记录" in window.notice.text()
+
+
+def test_osu_songs_detection_highlights_queue_rows(window, tmp_path):
+    songs = tmp_path / "Songs"
+    numbered = songs / "456 Artist - Song"
+    metadata = songs / "custom folder"
+    numbered.mkdir(parents=True)
+    metadata.mkdir()
+    (metadata / "map.osu").write_text(
+        "osu file format v14\n\n[Metadata]\nBeatmapSetID: 789\n", encoding="utf-8"
+    )
+    window.input.setPlainText("123 456 789")
+    window.add_input()
+
+    found = window.find_local_songs(songs, window.tasks)
+    assert set(found) == {456, 789}
+    window.finished_local_scan(found, "")
+
+    row_123 = window.cells[123]
+    row_456 = window.cells[456]
+    row_789 = window.cells[789]
+    assert window.table.item(row_123, 0).background().color() != QColor(LOCAL_SONG_BACKGROUND)
+    assert window.table.item(row_456, 0).background().color() == QColor(LOCAL_SONG_BACKGROUND)
+    assert window.table.item(row_789, 0).background().color() == QColor(LOCAL_SONG_BACKGROUND)
+    assert all(window.table.item(row_456, col).background().color() == QColor(LOCAL_SONG_BACKGROUND)
+               for col in range(window.table.columnCount()))
+    assert "456 Artist - Song" in window.table.item(row_456, 0).toolTip()
+    assert "2 / 3" in window.notice.text()
+
+    window.local_songs_directory_changed()
+    assert window.table.item(row_456, 0).background().color() != QColor(LOCAL_SONG_BACKGROUND)
+    assert window.table.item(row_456, 0).toolTip() == ""
+
+
+def test_osu_songs_scan_runs_in_background(window, qapp, tmp_path):
+    songs = tmp_path / "Songs"
+    (songs / "321 Local Song").mkdir(parents=True)
+    window.songs_directory.setText(str(songs))
+    window.input.setPlainText("321")
+    window.add_input()
+
+    window.scan_local_songs()
+
+    assert window.local_scan_running
+    assert not window.local_scan_button.isEnabled()
+    pump(qapp, lambda: not window.local_scan_running)
+    assert 321 in window.local_songs
+    assert window.local_scan_button.isEnabled()
 
 
 def test_mirror_video_options(window):
