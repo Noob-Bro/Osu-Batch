@@ -1,4 +1,4 @@
-Windows x64 bilingual UI build — 2026-09-15
+Windows x64 bilingual UI build — 2026-09-16
 
 Built from the delivered UI-fixed bilingual source with PyInstaller 6.22.2.
 Source regression tests: 64 passed, including the first-launch English default,
