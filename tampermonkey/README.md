@@ -17,7 +17,8 @@ This branch contains a browser userscript version of osu! Batch. It runs on `htt
 - Parse beatmapset IDs and `osu.ppy.sh/beatmapsets/...` links.
 - Collect beatmapset links from the current osu! webpage.
 - Search every page of the official beatmapset search endpoint.
-- Desktop-style filters for artist/title (including romanized fields), mapper, source, status, mode, genre, language, BPM, length, star difficulty, submission/update/status dates, and ascending/descending sorting.
+- Desktop-style filters for artist/title (including romanized fields), mapper, source, status, mode, genre, language, BPM, length, star difficulty, submission/update/ranked-or-approved dates, and ascending/descending sorting.
+- Paginated search results with individual checkboxes, select-all/select-none, and an explicit **Add selected** action. Searching no longer adds every result directly to the download queue.
 - Exact artist matching after normalising Unicode width and letter case.
 - Import osu!stable's `osu!.db` locally and detect installed beatmapsets by BeatmapSet ID. Matching rows in the queue and links on osu! webpages are highlighted pale green.
 - Persistent download queue, pause/resume, configurable spacing, and completed/failed states.
@@ -37,6 +38,7 @@ The browser requires this explicit file selection and cannot silently open that 
 ## Important differences from the desktop build
 
 - Browsers may ask for permission before allowing multiple downloads. Tampermonkey's download permission must be enabled.
+- Some Tampermonkey configurations reject the `.osz` extension with `not_whitelisted`. Version 0.2.1 automatically retries those cases through the browser's native download path. Adding `osz` to Tampermonkey's download file-extension whitelist remains the most reliable option for very large batches.
 - The userscript cannot safely provide partial-file resume, ZIP CRC validation, or verify the downloaded `.osz` contents without buffering large files in browser memory.
 - osu!stable is supported through user-selected `osu!.db`. The script still cannot silently watch the `Songs` directory, and osu!lazer's `client.realm` is not supported yet.
 - Queue state is Tampermonkey extension storage, not the desktop SQLite queue.
