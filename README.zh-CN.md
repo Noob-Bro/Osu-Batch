@@ -1,4 +1,6 @@
 # osu! Batch — Windows 谱面批量下载工具
+<img width="2172" height="724" alt="image" src="https://github.com/user-attachments/assets/b2b373ab-3664-4033-92d9-98a12d4d4227" />
+
 
 [English](README.md) | **简体中文**
 
