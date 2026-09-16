@@ -5,6 +5,9 @@ from PySide6.QtWidgets import QCalendarWidget, QToolButton
 from i18n import tr
 
 
+LOCAL_SONG_BACKGROUND = "#315743"
+
+
 def dark_palette():
     palette = QPalette()
     colors = {
