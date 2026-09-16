@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 from engine import Downloader, DownloadError, Options, Stopped, MIRRORS, clean_cookie, parse_input
 from store import Store
 from search_dialog import SearchDialog
-from ui_theme import dark_palette
+from ui_theme import LOCAL_SONG_BACKGROUND, dark_palette
 import i18n
 from i18n import (QLabel, QPushButton, QCheckBox, QMainWindow, QDialog,
                   QLineEdit, QPlainTextEdit, QComboBox, QSpinBox, QTableWidget,
@@ -27,7 +27,6 @@ from i18n import (QLabel, QPushButton, QCheckBox, QMainWindow, QDialog,
 
 MODES = {"仅官方（默认）": "official", "官方优先，失败后尝试所选镜像": "fallback", "仅所选镜像": "mirror"}
 STATUS_COLORS = {"已完成": "#77dfaf", "失败": "#ff899c", "下载中": "#f5a6d5", "已暂停": "#edc77f"}
-LOCAL_SONG_BACKGROUND = "#315743"
 
 
 def size(n):
@@ -113,7 +112,7 @@ class Window(QMainWindow):
         self.running, self.closing = False, False
         self.batch_options = None
         settings = self.store.settings()
-        i18n.set_language(settings.get('language', 'zh'))
+        i18n.set_language(settings.get('language', 'en'))
 
         root = QWidget()
         scroll = QScrollArea()
