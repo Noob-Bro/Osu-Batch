@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 
 from app import LOCAL_SONG_BACKGROUND, Window, STYLE
 from engine import Downloader, RateGate, Stopped
+import i18n
 
 
 @pytest.fixture(scope="module")
@@ -31,6 +32,7 @@ def pump(qapp, predicate, seconds=3):
 @pytest.fixture
 def window(tmp_path, qapp):
     w = Window(tmp_path / "data")
+    w.language.setCurrentIndex(0)
     w.directory.setText(str(tmp_path / "downloads"))
     w.mode.setCurrentIndex(2)
     w.show()
@@ -40,6 +42,18 @@ def window(tmp_path, qapp):
         pump(qapp, lambda: not w.active)
     w.close()
     qapp.processEvents()
+
+
+def test_first_launch_defaults_to_english(tmp_path, qapp):
+    w = Window(tmp_path / "fresh-data")
+    try:
+        assert i18n.language == "en"
+        assert w.language.currentData() == "en"
+        assert w.start_button.text() == "Start / resume"
+        assert "language" not in w.store.settings()
+    finally:
+        w.close()
+        qapp.processEvents()
 
 
 def test_queue_import_and_cancel(window):
@@ -204,6 +218,37 @@ def test_search_dialog_partial_requires_explicit_selection(window,qapp):
     assert dialog.add_selected.isEnabled()
     dialog.choose(False)
     assert dialog.chosen_ids==[123]
+
+
+def test_search_dialog_detects_and_highlights_local_songs(window, qapp, tmp_path):
+    from search_dialog import SearchDialog
+    from search import SearchResult
+    songs = tmp_path / "Songs"
+    (songs / "555 Existing Song").mkdir(parents=True)
+    window.songs_directory.setText(str(songs))
+    rows = [
+        dict(sid=555, artist='Local', title='Existing', creator='Mapper', status='ranked', modes=[0]),
+        dict(sid=666, artist='Remote', title='Missing', creator='Mapper', status='ranked', modes=[0]),
+    ]
+    dialog = SearchDialog(window)
+    dialog.finished_search(SearchResult(rows, True, '搜索完成'))
+
+    dialog.scan_local_songs()
+
+    assert dialog.local_scan_running
+    assert not dialog.local_scan_button.isEnabled()
+    pump(qapp, lambda: not dialog.local_scan_running)
+    row_555 = next(row for row in range(dialog.table.rowCount())
+                   if dialog.table.item(row, 0).text() == '555')
+    row_666 = next(row for row in range(dialog.table.rowCount())
+                   if dialog.table.item(row, 0).text() == '666')
+    assert all(dialog.table.item(row_555, col).background().color() == QColor(LOCAL_SONG_BACKGROUND)
+               for col in range(dialog.table.columnCount()))
+    assert dialog.table.item(row_666, 0).background().color() != QColor(LOCAL_SONG_BACKGROUND)
+    assert '555 Existing Song' in dialog.table.item(row_555, 0).toolTip()
+    assert 555 in window.local_songs
+    assert '1 / 2' in dialog.state.text()
+    dialog.reject()
 
 
 def test_search_dialog_defaults_are_unset(window, qapp):
