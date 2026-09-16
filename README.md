@@ -21,7 +21,7 @@ Python 3.12+ is required. If dependencies are missing, the first launch creates 
 
 Close the previous version before upgrading. Existing queues and settings will be preserved.
 
-**Language:** Select **中文** or **English** from the upper-right corner of the main window. The change takes effect immediately and the preference is saved.
+**Language:** A first launch defaults to **English**. Select **中文** or **English** from the upper-right corner of the main window; the change takes effect immediately and the saved preference is preserved during upgrades.
 
 User input, beatmap titles, and artist names remain in their original language. Filter values and download states are unaffected by the selected interface language.
 
@@ -47,7 +47,7 @@ For example, you may search with Sayobot and then download using the official so
 
 Version 1.1.1 adds a confirmation-protected **Clear all download records** button. It clears only queue records and does not delete downloaded `.osz` files or partial files. The new version continues using the existing queue database. Close the previous version before upgrading.
 
-The main window can scan an osu!stable `Songs` folder for queued beatmapsets. It matches the leading beatmapset ID in song-folder names and the `BeatmapSetID` value in `.osu` metadata, then highlights matching queue rows in pale green. The scan runs in the background and is read-only. The default folder is `%LOCALAPPDATA%\osu!\Songs`; custom installations can select another folder. osu!lazer internal storage is not currently supported.
+The main window can scan an osu!stable `Songs` folder for queued beatmapsets. It matches the leading beatmapset ID in song-folder names and the `BeatmapSetID` value in `.osu` metadata, then highlights matching queue rows in pale green. After a filter search, the filter-results window can run the same detection and highlight results already present in the local library. The scan runs in the background and is read-only. The default folder is `%LOCALAPPDATA%\osu!\Songs`; custom installations can select another folder. osu!lazer internal storage is not currently supported.
 
 ### Filtering Semantics
 
