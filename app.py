@@ -108,6 +108,9 @@ class Window(QMainWindow):
         self.events.local_scan.connect(self.finished_local_scan)
         self.active, self.reasons, self.tasks, self.cells, self.speeds = {}, {}, {}, {}, {}
         self.local_songs, self.local_scan_running = {}, False
+        self._stable_song_index_key = None
+        self._stable_song_index = {}
+        self._stable_song_index_lock = threading.Lock()
         self.cookie = ""
         self.running, self.closing = False, False
         self.batch_options = None
@@ -317,45 +320,67 @@ class Window(QMainWindow):
             self.table.item(row, 0).setToolTip("")
         return local_path
 
-    @staticmethod
-    def find_local_songs(folder, targets):
-        """Find queued beatmapsets in an osu!stable Songs folder without modifying it."""
-        targets, found = set(targets), {}
+    def find_local_songs(self, folder, targets):
+        """Find beatmapsets in an osu!stable Songs folder without modifying it.
+
+        Build a complete in-memory index once and reuse it for queue and search
+        results. A normal Songs directory contains one beatmapset per folder, so
+        only one valid .osu metadata file needs to be read from each folder.
+        """
+        targets = set(targets)
         if not targets:
-            return found
+            return {}
         try:
-            directories = [path for path in folder.iterdir() if path.is_dir()]
+            directories = sorted((path for path in folder.iterdir() if path.is_dir()),
+                                 key=lambda path: path.name.casefold())
+            signature = tuple((directory.name, directory.stat().st_mtime_ns)
+                              for directory in directories)
+            cache_key = (str(folder.resolve()), folder.stat().st_mtime_ns, signature)
         except OSError:
-            return found
-        for directory in directories:
-            match = re.match(r"^\s*(\d+)(?:\s|$)", directory.name)
-            if match and int(match.group(1)) in targets:
-                found[int(match.group(1))] = str(directory)
-        remaining = targets - found.keys()
-        if not remaining:
-            return found
-        for directory in directories:
-            if not remaining:
-                break
-            try:
-                maps = directory.rglob("*.osu")
-            except OSError:
-                continue
-            for map_path in maps:
-                try:
-                    content = map_path.read_bytes()[:2 * 1024 * 1024].decode("utf-8-sig", errors="replace")
-                except OSError:
-                    continue
-                match = re.search(r"(?m)^BeatmapSetID\s*:\s*(-?\d+)\s*$", content)
-                if match and int(match.group(1)) in remaining:
-                    sid = int(match.group(1))
-                    found[sid] = str(directory)
-                    remaining.remove(sid)
-                    break
-        return found
+            return {}
+
+        with self._stable_song_index_lock:
+            if self._stable_song_index_key != cache_key:
+                index = {}
+                for directory in directories:
+                    match = re.match(r"^\s*(\d+)(?:\s|$)", directory.name)
+                    if match:
+                        sid = int(match.group(1))
+                        if sid > 0:
+                            index[sid] = str(directory)
+                            continue
+
+                    try:
+                        maps = sorted(directory.glob("*.osu"), key=lambda path: path.name.casefold())
+                    except OSError:
+                        continue
+                    for map_path in maps:
+                        try:
+                            content = map_path.read_bytes()[:2 * 1024 * 1024].decode("utf-8-sig", errors="replace")
+                        except OSError:
+                            continue
+                        match = re.search(r"(?m)^BeatmapSetID\s*:\s*(-?\d+)\s*$", content)
+                        if not match:
+                            continue
+                        sid = int(match.group(1))
+                        if sid > 0:
+                            index[sid] = str(directory)
+                        # Every difficulty in a normal Songs folder belongs to
+                        # the same set. Stop after the first readable ID even
+                        # when it is -1 or not in the current filter results.
+                        break
+
+                self._stable_song_index = index
+                self._stable_song_index_key = cache_key
+
+            return {sid: self._stable_song_index[sid]
+                    for sid in targets if sid in self._stable_song_index}
 
     def local_songs_directory_changed(self):
         self.local_songs = {}
+        with self._stable_song_index_lock:
+            self._stable_song_index_key = None
+            self._stable_song_index = {}
         for sid in self.tasks:
             self.paint(sid)
 
