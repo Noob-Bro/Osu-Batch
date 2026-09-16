@@ -48,7 +48,7 @@ class Store:
         return {r[0]: json.loads(r[1]) for r in self.db.execute("SELECT key,value FROM settings")}
 
     def save_settings(self, values):
-        allowed = {"directory", "mode", "mirror", "no_video", "concurrency", "language"}
+        allowed = {"directory", "songs_directory", "mode", "mirror", "no_video", "concurrency", "language"}
         assert values.keys() <= allowed
         self.db.executemany("INSERT OR REPLACE INTO settings VALUES (?,?)",
                             [(k, json.dumps(v)) for k, v in values.items()])
