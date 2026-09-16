@@ -339,6 +339,7 @@ VALIDATION.md
 ## 截图
 <img width="523" height="529" alt="image" src="https://github.com/user-attachments/assets/25bb0a9a-aff8-4106-8f30-e1d014f5d8db" />
 <img width="524" height="527" alt="image" src="https://github.com/user-attachments/assets/dd40b732-78f6-47f7-87a5-fe8d58498b66" />
+<img width="1262" height="594" alt="image" src="https://github.com/user-attachments/assets/9ea4bfa3-45b9-400b-88d7-aa9fc5caf31e" />
 
 ## License / 许可证
 
