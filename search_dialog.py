@@ -1,14 +1,15 @@
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 from PySide6.QtCore import QObject, QDate, Signal, QUrl
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtGui import QColor, QDesktopServices
 from PySide6.QtWidgets import (
     QAbstractItemView, QCalendarWidget, QComboBox, QDialog, QDoubleSpinBox, QGridLayout,
     QGroupBox, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QPushButton, QSpinBox,
     QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QScrollArea, QSizePolicy,
 )
-from ui_theme import configure_calendar
+from ui_theme import LOCAL_SONG_BACKGROUND, configure_calendar
 from i18n import (QComboBox, QDialog, QDoubleSpinBox, QGroupBox, QLabel,
                   QLineEdit, QPushButton, QSpinBox, QTableWidget, tr)
 
@@ -21,6 +22,7 @@ from search import (
 class SearchEvents(QObject):
     progress = Signal(str)
     result = Signal(object)
+    local_scan = Signal(object, str)
 
 
 def _number_text(value, decimals=1):
@@ -139,11 +141,14 @@ class SearchDialog(QDialog):
         self.events = SearchEvents()
         self.events.progress.connect(self.show_progress)
         self.events.result.connect(self.finished_search)
+        self.events.local_scan.connect(self.finished_local_scan)
         self.busy = self.closing = False
+        self.local_scan_running = False
         self.stop = threading.Event()
         self.result_data = None
         self.base_rows = []
         self.last_search_message = ''
+        self.local_songs = dict(parent.local_songs)
         self.chosen_ids = []
 
         layout = QVBoxLayout(self)
@@ -350,6 +355,13 @@ class SearchDialog(QDialog):
         )
         layout.addWidget(self.table, 1)
 
+        local_actions = QHBoxLayout()
+        self.local_scan_button = QPushButton('检测 osu! 本地歌曲')
+        self.local_scan_button.clicked.connect(self.scan_local_songs)
+        local_actions.addWidget(self.local_scan_button)
+        local_actions.addStretch()
+        layout.addLayout(local_actions)
+
         actions = QHBoxLayout()
         self.add_all = QPushButton('全部加入下载队列')
         self.add_all.setObjectName('accent')
@@ -487,6 +499,9 @@ class SearchDialog(QDialog):
         available = not self.busy and self.result_data is not None
         self.add_all.setEnabled(available and self.result_data.complete and bool(self.result_data.rows))
         self.add_selected.setEnabled(available and bool(self.table.selectionModel().selectedRows()))
+        self.local_scan_button.setEnabled(
+            available and not self.local_scan_running and bool(self.result_data.rows)
+        )
 
     def filters_from_ui(self):
         return Filters(
@@ -522,7 +537,7 @@ class SearchDialog(QDialog):
         )
 
     def start_search(self):
-        if self.busy:
+        if self.busy or self.local_scan_running:
             return
         if self.source.currentData() == 'official' and not self.parent().cookie:
             self.state.setText('请先在主窗口设置官网会话，或选择 Sayobot 搜索。')
@@ -561,6 +576,59 @@ class SearchDialog(QDialog):
         self.search_button.setEnabled(True)
         self.cancel_button.setEnabled(False)
         self.apply_sort()
+        self.buttons()
+        if self.closing:
+            self.reject()
+
+    def scan_local_songs(self):
+        if self.busy or self.local_scan_running or self.result_data is None or not self.result_data.rows:
+            self.state.setText('请先完成筛选搜索。')
+            return
+        folder_text = self.parent().songs_directory.text().strip()
+        folder = Path(folder_text).expanduser() if folder_text else None
+        if folder is None or not folder.is_dir():
+            self.state.setText('osu! Songs 目录不存在或无法访问。')
+            return
+        targets = {row['sid'] for row in self.result_data.rows}
+        finder = self.parent().find_local_songs
+        self.local_scan_running = True
+        for widget in self.filter_inputs:
+            widget.setEnabled(False)
+        self.sort_field.setEnabled(False)
+        self.sort_direction.setEnabled(False)
+        self.search_button.setEnabled(False)
+        self.buttons()
+        self.state.setText('正在检测筛选结果中的 osu! 本地歌曲；扫描只读取文件，不会修改曲库…')
+
+        def worker():
+            try:
+                found = finder(folder, targets)
+                self.events.local_scan.emit(found, '')
+            except Exception:
+                self.events.local_scan.emit({}, '检测本地歌曲时发生错误，请检查 Songs 目录权限。')
+
+        self.pool.submit(worker)
+
+    def finished_local_scan(self, found, error):
+        self.local_scan_running = False
+        for widget in self.filter_inputs:
+            widget.setEnabled(True)
+        self.sort_field.setEnabled(True)
+        self.update_sort_state()
+        self.search_button.setEnabled(True)
+        if error:
+            self.state.setText(error)
+        else:
+            self.local_songs.update(found)
+            self.parent().local_songs.update(found)
+            for sid in set(found) & self.parent().tasks.keys():
+                self.parent().paint(sid)
+            if self.result_data is not None:
+                self.render_table()
+                total = len(self.result_data.rows)
+            else:
+                total = 0
+            self.state.setText(f'已检测筛选结果中的 osu! 本地歌曲：{len(found)} / {total} 条结果已存在。')
         self.buttons()
         if self.closing:
             self.reject()
@@ -630,9 +698,16 @@ class SearchDialog(QDialog):
                 item = QTableWidgetItem(tr(value) if col in (6, 7, 13) else value)
                 item.setToolTip(value)
                 self.table.setItem(index, col, item)
+            local_path = self.local_songs.get(row['sid'])
+            if local_path:
+                for col in range(self.table.columnCount()):
+                    self.table.item(index, col).setBackground(QColor(LOCAL_SONG_BACKGROUND))
+                self.table.item(index, 0).setToolTip(
+                    tr('在 osu! Songs 曲库中检测到该谱面集：') + str(local_path)
+                )
 
     def choose(self, all_rows):
-        if self.busy or self.result_data is None:
+        if self.busy or self.local_scan_running or self.result_data is None:
             return
         if all_rows:
             if not self.result_data.complete:
@@ -645,16 +720,19 @@ class SearchDialog(QDialog):
             self.accept()
 
     def reject(self):
-        if self.busy:
+        if self.busy or self.local_scan_running:
             self.closing = True
-            self.stop.set()
-            self.state.setText('正在结束搜索，请稍候…')
+            if self.busy:
+                self.stop.set()
+                self.state.setText('正在结束搜索，请稍候…')
+            else:
+                self.state.setText('正在结束本地歌曲检测，请稍候…')
             return
         self.pool.shutdown(wait=False)
         super().reject()
 
     def closeEvent(self, event):
-        if self.busy:
+        if self.busy or self.local_scan_running:
             event.ignore()
             self.reject()
         else:
