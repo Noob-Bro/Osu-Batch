@@ -50,6 +50,9 @@ test('builds official search parameters and cursor', () => {
     const approved = buildSearchParams({ title: '', artist: '', creator: '', status: 'approved', mode: '' }, null);
     assert.equal(approved.get('s'), 'any');
     assert.equal(approved.get('q'), 'status=approved');
+    const rankedDate = buildSearchParams({ status: 'ranked', statusChangedFrom: '2024-01-01', sortField: 'statusChanged', sortDescending: true }, null);
+    assert.match(rankedDate.get('q'), /ranked>=2024-01-01/);
+    assert.equal(rankedDate.get('sort'), 'ranked_desc');
 });
 
 test('normalises and locally verifies official results', () => {
@@ -83,6 +86,10 @@ test('applies advanced ranges, dates and sorting', () => {
     }), true);
     assert.deepEqual(sortRecords([first, second], 'artist', false).map(row => row.sid), [2, 1]);
     assert.throws(() => buildSearchParams({ bpmMin: '200', bpmMax: '100' }, null), /minimum/);
+    assert.equal(recordMatches(second, {
+        artist: '', title: '', creator: '', exactArtist: true, status: 'ranked', mode: '0',
+        statusChangedFrom: '2024-01-01', statusChangedTo: '2024-12-31',
+    }), true, 'missing response dates must not discard server-filtered results');
 });
 
 test('creates verified source URLs and rejects Mino no-video', () => {
