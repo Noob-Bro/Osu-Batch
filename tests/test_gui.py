@@ -110,6 +110,28 @@ def test_osu_songs_detection_highlights_queue_rows(window, tmp_path):
     assert window.table.item(row_456, 0).toolTip() == ""
 
 
+def test_osu_songs_detection_reads_one_map_per_folder_and_reuses_index(window, tmp_path, monkeypatch):
+    songs = tmp_path / "Songs"
+    custom = songs / "Artist - Song"
+    custom.mkdir(parents=True)
+    for name in ("Hard.osu", "Normal.osu"):
+        (custom / name).write_text(
+            "osu file format v14\n\n[Metadata]\nBeatmapSetID: 789\n", encoding="utf-8"
+        )
+
+    original_read_bytes = Path.read_bytes
+    reads = []
+
+    def counted_read_bytes(path):
+        reads.append(path)
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", counted_read_bytes)
+    assert set(window.find_local_songs(songs, {789})) == {789}
+    assert set(window.find_local_songs(songs, {789, 999})) == {789}
+    assert len(reads) == 1
+
+
 def test_osu_songs_scan_runs_in_background(window, qapp, tmp_path):
     songs = tmp_path / "Songs"
     (songs / "321 Local Song").mkdir(parents=True)
