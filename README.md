@@ -1,4 +1,6 @@
 # osu! Batch — Batch Beatmap Downloader for Windows
+<img width="2172" height="724" alt="image" src="https://github.com/user-attachments/assets/871a76ac-b44a-410b-b81d-fbe31421835a" />
+
 
 **English** | [简体中文](README.zh-CN.md)
 
