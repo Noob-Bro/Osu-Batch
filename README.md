@@ -45,7 +45,7 @@ The **search source** and **download source** are independent.
 
 For example, you may search with Sayobot and then download using the official source configured in the main window. The search source is never changed automatically.
 
-Version 1.1.1 adds a confirmation-protected **Clear all download records** button. It clears only queue records and does not delete downloaded `.osz` files or partial files. The new version continues using the existing queue database. Close the previous version before upgrading.
+Version 1.1.1 adds a confirmation-protected **Clear all download records** button. It clears only queue records and does not delete downloaded `.osz` files or partial files. The new version continues using the existing queue database. Close the previous version before upgrading.\n\nThe main window can scan an osu!stable `Songs` folder for queued beatmapsets. It matches the leading beatmapset ID in song-folder names and the `BeatmapSetID` value in `.osu` metadata, then highlights matching queue rows in pale green. The scan runs in the background and is read-only. The default folder is `%LOCALAPPDATA%\\osu!\\Songs`; custom installations can select another folder. osu!lazer internal storage is not currently supported.
 
 ### Filtering Semantics
 
