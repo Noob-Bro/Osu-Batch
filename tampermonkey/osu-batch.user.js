@@ -2,7 +2,7 @@
 // @name         osu! Batch Web
 // @name:zh-CN   osu! Batch 网页版
 // @namespace    https://github.com/Noob-Bro/Osu-Batch
-// @version      0.3.0
+// @version      0.3.1
 // @description  Batch-search and download osu! beatmapsets from osu.ppy.sh.
 // @description:zh-CN 在 osu! 官网筛选、收集并批量下载谱面集。
 // @author       Noob-Bro
@@ -14,7 +14,9 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
+// @grant        unsafeWindow
 // @connect      osu.ppy.sh
+// @connect      b.ppy.sh
 // @connect      api.nerinyan.moe
 // @connect      txy1.sayobot.cn
 // @connect      catboy.best
@@ -64,7 +66,7 @@
             collect: 'Collect this page', search: 'Search all pages', stopSearch: 'Stop search',
             artist: 'Artist', titleField: 'Title', creator: 'Mapper', exact: 'Exact artist', status: 'Status',
             mode: 'Mode', any: 'Any', source: 'Download source', noVideo: 'No video', interval: 'Interval (s)',
-            downloadMode: 'Save method', folderMode: 'Choose folder once (recommended)', browserMode: 'Browser downloads',
+            downloadMode: 'Save method', folderMode: 'Choose folder once (recommended)', stableMode: 'osu!stable Songs folder', browserMode: 'Browser downloads',
             artistRomanized: 'Artist (romanized)', titleRomanized: 'Title (romanized)', sourceText: 'Source',
             genre: 'Genre', language: 'Language', bpmMin: 'Min BPM', bpmMax: 'Max BPM',
             lengthMin: 'Min length (s)', lengthMax: 'Max length (s)', difficultyMin: 'Min stars', difficultyMax: 'Max stars',
@@ -82,6 +84,8 @@
             resultPage: (page, pages) => `Page ${page}/${pages}`, nativeFallback: 'Tampermonkey blocked .osz; started with the browser download instead.',
             folderUnsupported: 'Direct folder saving is unavailable in this browser. Use Edge/Chrome or choose Browser downloads.',
             folderCancelled: 'Folder selection was cancelled.', folderReady: name => `Saving directly to: ${name}`,
+            stableHelp: 'Choose %LOCALAPPDATA%\\osu!\\Songs. A webpage cannot launch osu!.exe; running stable imports automatically, otherwise open it and press F5.',
+            stableDone: 'Saved into the stable Songs folder. Open osu!stable (or press F5 if it is already open) to finish importing.',
             browserLimit: 'Your browser may ask for permission to allow multiple downloads.',
             localLimit: 'For security, select osu!.db manually. It is parsed locally and is never uploaded. osu!lazer client.realm is not supported yet.',
             loadDb: 'Load osu!.db', clearDb: 'Clear local library', local: 'Already local',
@@ -97,7 +101,7 @@
             collect: '收集当前页面', search: '搜索全部分页', stopSearch: '停止搜索',
             artist: '艺术家', titleField: '歌名', creator: '谱师', exact: '艺术家精确匹配', status: '状态',
             mode: '模式', any: '不限', source: '下载来源', noVideo: '不含视频', interval: '间隔（秒）',
-            downloadMode: '保存方式', folderMode: '一次选择文件夹（推荐）', browserMode: '浏览器下载',
+            downloadMode: '保存方式', folderMode: '一次选择文件夹（推荐）', stableMode: 'osu!stable Songs 文件夹', browserMode: '浏览器下载',
             artistRomanized: '艺术家（罗马字）', titleRomanized: '歌名（罗马字）', sourceText: '来源',
             genre: '曲风', language: '语言', bpmMin: '最低 BPM', bpmMax: '最高 BPM',
             lengthMin: '最短时长（秒）', lengthMax: '最长时长（秒）', difficultyMin: '最低星数', difficultyMax: '最高星数',
@@ -115,6 +119,8 @@
             resultPage: (page, pages) => `第 ${page}/${pages} 页`, nativeFallback: 'Tampermonkey 拦截了 .osz，已改用浏览器原生下载。',
             folderUnsupported: '当前浏览器不支持直接保存到文件夹。请使用 Edge/Chrome，或选择“浏览器下载”。',
             folderCancelled: '已取消选择文件夹。', folderReady: name => `将直接保存到：${name}`,
+            stableHelp: '请选择 %LOCALAPPDATA%\\osu!\\Songs。网页无法直接启动 osu!.exe；stable 运行时会自动导入，否则请打开 stable 后按 F5。',
+            stableDone: '已保存到 stable Songs 文件夹。请打开 osu!stable；如已打开则按 F5 完成导入。',
             browserLimit: '浏览器可能询问是否允许连续下载多个文件。',
             localLimit: '受浏览器安全限制，需手动选择 osu!.db；文件只在本地解析，不会上传。暂不支持 osu!lazer client.realm。',
             loadDb: '载入 osu!.db', clearDb: '清除本地曲库', local: '本地已有',
@@ -428,7 +434,7 @@
         let searching = false;
         let stopRequested = false;
         let activeDownload = null;
-        let downloadDirectory = null;
+        const downloadDirectories = { folder: null, stable: null };
         let notice = '';
         let localIds = new Set(state.localSetIds);
         let searchResults = [];
@@ -511,7 +517,8 @@
             const meta = [item.artist, item.title].filter(Boolean).join(' — ') || '—';
             const isLocal = localIds.has(item.sid);
             const classes = [item.status === 'done' ? 'done' : '', item.status === 'failed' ? 'failed' : '', isLocal ? 'local' : ''].filter(Boolean).join(' ');
-            return `<tr class="${classes}"><td><a href="https://osu.ppy.sh/beatmapsets/${item.sid}" target="_blank" rel="noopener">${item.sid}</a></td><td title="${escapeHtml(item.message || '')}">${escapeHtml(meta)}</td><td>${isLocal ? `${escapeHtml(tr('local'))} · ` : ''}${escapeHtml(label)}</td></tr>`;
+            const message = item.message ? `: ${escapeHtml(item.message)}` : '';
+            return `<tr class="${classes}"><td><a href="https://osu.ppy.sh/beatmapsets/${item.sid}" target="_blank" rel="noopener">${item.sid}</a></td><td>${escapeHtml(meta)}</td><td>${isLocal ? `${escapeHtml(tr('local'))} · ` : ''}${escapeHtml(label)}${message}</td></tr>`;
         }
 
         function resultRow(item) {
@@ -565,14 +572,14 @@
                     </div></details>
                     <div class="obw-grid">
                         <label>${tr('source')}<select data-setting="source">${Object.entries(SOURCES).map(([v,n]) => `<option value="${v}" ${state.source === v ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
-                        <label>${tr('downloadMode')}<select data-setting="downloadMode"><option value="folder" ${state.downloadMode === 'folder' ? 'selected' : ''}>${tr('folderMode')}</option><option value="browser" ${state.downloadMode === 'browser' ? 'selected' : ''}>${tr('browserMode')}</option></select></label>
+                        <label>${tr('downloadMode')}<select data-setting="downloadMode"><option value="folder" ${state.downloadMode === 'folder' ? 'selected' : ''}>${tr('folderMode')}</option><option value="stable" ${state.downloadMode === 'stable' ? 'selected' : ''}>${tr('stableMode')}</option><option value="browser" ${state.downloadMode === 'browser' ? 'selected' : ''}>${tr('browserMode')}</option></select></label>
                         <label>${tr('interval')}<input data-setting="interval" type="number" min="1" max="60" step="0.5" value="${Number(state.interval)}"></label>
                     </div>
                     <div class="obw-row"><label><input type="checkbox" data-setting="noVideo" ${state.noVideo ? 'checked' : ''}> ${tr('noVideo')}</label><button data-action="search" class="primary" ${searching || running ? 'disabled' : ''}>${tr('search')}</button><button data-action="stopSearch" ${!searching ? 'disabled' : ''}>${tr('stopSearch')}</button></div>
                     <div class="obw-row"><textarea id="obw-input" placeholder="${tr('input')}"></textarea><button data-action="add">${tr('add')}</button><button data-action="collect">${tr('collect')}</button></div>
                     <div class="obw-row"><button data-action="start" class="primary" ${running || searching ? 'disabled' : ''}>${tr('start')}</button><button data-action="pause" ${!running ? 'disabled' : ''}>${tr('pause')}</button><button data-action="clearDone" ${running || searching ? 'disabled' : ''}>${tr('clearDone')}</button><button data-action="clearAll" ${running || searching ? 'disabled' : ''}>${tr('clearAll')}</button><span class="obw-count">${state.queue.length}</span></div>
                     <div class="obw-row"><button data-action="loadDb">${tr('loadDb')}</button><button data-action="clearDb" ${state.localSetIds.length ? '' : 'disabled'}>${tr('clearDb')}</button><span>${state.localSetIds.length ? `${state.localSetIds.length} ${tr('metadata')}` : ''}</span><input id="obw-db-file" type="file" accept=".db,application/octet-stream" hidden></div>
-                    <div class="obw-note">${tr('login')} ${state.downloadMode === 'browser' ? tr('browserLimit') : ''}</div><div class="obw-note obw-warn">${tr('localLimit')}</div><div class="obw-state">${escapeHtml(notice)}</div>
+                    <div class="obw-note">${tr('login')} ${state.downloadMode === 'browser' ? tr('browserLimit') : ''}</div>${state.downloadMode === 'stable' ? `<div class="obw-note obw-warn">${tr('stableHelp')}</div>` : ''}<div class="obw-note obw-warn">${tr('localLimit')}</div><div class="obw-state">${escapeHtml(notice)}</div>
                     ${resultPanel}
                     ${shown.length ? `<table class="obw-table"><thead><tr><th>${tr('id')}</th><th>${tr('metadata')}</th><th>${tr('state')}</th></tr></thead><tbody>${shown.map(queueRow).join('')}</tbody></table>` : `<p>${tr('queueEmpty')}</p>`}
                 </div>`;
@@ -659,15 +666,21 @@
             });
         }
 
-        function mirrorBlob(url) {
+        function requestBlob(url, item) {
             return new Promise((resolve, reject) => {
                 try {
                     activeDownload = GM_xmlhttpRequest({
                         method: 'GET', url, responseType: 'blob', anonymous: false, timeout: 180000,
+                        headers: state.source === 'official' ? { Referer: `https://osu.ppy.sh/beatmapsets/${item.sid}`, Accept: 'application/octet-stream' } : {},
                         onload: response => {
                             activeDownload = null;
                             if (response.status < 200 || response.status >= 300) reject(new Error(`HTTP ${response.status}`));
-                            else resolve(response.response);
+                            else if (/content-type:\s*text\/html/i.test(response.responseHeaders || '')) reject(new Error('Download returned a web page; sign in to osu! first'));
+                            else {
+                                const blob = response.response instanceof Blob ? response.response : new Blob([response.response]);
+                                if (!blob.size) reject(new Error('Download returned an empty file'));
+                                else resolve(blob);
+                            }
                         },
                         onerror: error => { activeDownload = null; reject(new Error(error && (error.error || error.message) || 'Download failed')); },
                         ontimeout: () => { activeDownload = null; reject(new Error('Download timed out')); },
@@ -680,30 +693,11 @@
         async function folderDownload(item, directory) {
             const url = downloadUrl(state.source, item.sid, state.noVideo);
             const filename = `${item.sid}${state.noVideo ? '-novideo' : ''}.osz`;
-            if (state.source !== 'official') {
-                const blob = await mirrorBlob(url);
-                const fileHandle = await directory.getFileHandle(filename, { create: true });
-                const writable = await fileHandle.createWritable();
-                try { await writable.write(blob); await writable.close(); }
-                catch (error) { try { await writable.abort(); } catch (_) { /* already closed */ } throw error; }
-                return;
-            }
-            const controller = new AbortController();
-            activeDownload = controller;
-            let writable = null;
-            try {
-                const response = await fetch(url, { credentials: 'include', signal: controller.signal, headers: { Accept: 'application/octet-stream' } });
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                if (!response.body) throw new Error('Download response has no stream');
-                const contentType = response.headers.get('content-type') || '';
-                if (/text\/html/i.test(contentType)) throw new Error('Download returned a web page; sign in to osu! first');
-                const fileHandle = await directory.getFileHandle(filename, { create: true });
-                writable = await fileHandle.createWritable();
-                await response.body.pipeTo(writable, { signal: controller.signal });
-            } catch (error) {
-                if (writable) try { await writable.abort(); } catch (_) { /* already closed */ }
-                throw error;
-            } finally { activeDownload = null; }
+            const blob = await requestBlob(url, item);
+            const fileHandle = await directory.getFileHandle(filename, { create: true });
+            const writable = await fileHandle.createWritable();
+            try { await writable.write(blob); await writable.close(); }
+            catch (error) { try { await writable.abort(); } catch (_) { /* already closed */ } throw error; }
         }
 
         async function loadLocalDatabase(file) {
@@ -729,11 +723,18 @@
             if (running) return;
             syncControls();
             if (state.noVideo && state.source === 'mino') { notice = tr('unsupportedNoVideo'); render(); return; }
-            if (state.downloadMode === 'folder' && !downloadDirectory) {
-                if (typeof window.showDirectoryPicker !== 'function') { notice = tr('folderUnsupported'); render(); return; }
+            const directMode = state.downloadMode === 'folder' || state.downloadMode === 'stable';
+            let selectedDirectory = directMode ? downloadDirectories[state.downloadMode] : null;
+            if (directMode && !selectedDirectory) {
+                const hostWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
+                if (typeof hostWindow.showDirectoryPicker !== 'function') { notice = tr('folderUnsupported'); render(); return; }
                 try {
-                    downloadDirectory = await window.showDirectoryPicker({ id: 'osu-batch-downloads', mode: 'readwrite', startIn: 'downloads' });
-                    notice = tr('folderReady', downloadDirectory.name);
+                    selectedDirectory = await hostWindow.showDirectoryPicker.call(hostWindow, {
+                        id: state.downloadMode === 'stable' ? 'osu-batch-stable-songs' : 'osu-batch-downloads',
+                        mode: 'readwrite', startIn: 'downloads',
+                    });
+                    downloadDirectories[state.downloadMode] = selectedDirectory;
+                    notice = tr('folderReady', selectedDirectory.name);
                 } catch (error) {
                     notice = error && error.name === 'AbortError' ? tr('folderCancelled') : (error.message || String(error));
                     render(); return;
@@ -745,8 +746,8 @@
                 if (item.status === 'done') continue;
                 item.status = 'downloading'; item.message = ''; saveState(); render();
                 try {
-                    const usedFallback = state.downloadMode === 'folder'
-                        ? (await folderDownload(item, downloadDirectory), false)
+                    const usedFallback = directMode
+                        ? (await folderDownload(item, selectedDirectory), false)
                         : await gmDownload(item);
                     item.status = 'done';
                     if (usedFallback) item.message = tr('nativeFallback');
@@ -755,7 +756,10 @@
                 saveState(); render();
                 if (!stopRequested) await delay(state.interval * 1000);
             }
-            running = false; stopRequested = false; activeDownload = null; render();
+            const stoppedEarly = stopRequested;
+            running = false; stopRequested = false; activeDownload = null;
+            if (state.downloadMode === 'stable' && !stoppedEarly) notice = tr('stableDone');
+            render();
         }
 
         panel.addEventListener('change', event => {
