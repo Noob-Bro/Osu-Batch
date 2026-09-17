@@ -38,9 +38,15 @@ The browser requires this explicit file selection and cannot silently open that 
 
 ## Unattended batch downloads
 
-Keep **Save method** set to **Choose folder once (recommended)**. When **Start / resume** is clicked, Edge or Chrome asks for a destination directory once. After permission is granted, official downloads are streamed directly into individual `.osz` files in that directory. Mirror downloads use the same folder but are buffered one file at a time because they require Tampermonkey's cross-origin request API.
+Keep **Save method** set to **Choose folder once (recommended)**. When **Start / resume** is clicked, Edge or Chrome asks for a destination directory once. After permission is granted, Tampermonkey follows the download redirect and writes each completed `.osz` into that directory. Files are handled sequentially, so only one download is buffered at a time.
 
 The directory handle is retained for the current page session. After reloading the osu! page, choose the directory again. **Browser downloads** remains available as a compatibility mode.
+
+### osu!stable import mode
+
+Choose **osu!stable Songs folder**, then select `%LOCALAPPDATA%\osu!\Songs`. osu!stable automatically imports `.osz` files placed in that directory; if it is already running and does not refresh immediately, press `F5` in song selection.
+
+A userscript cannot start a local `osu!.exe` process directly. Automatically launching stable requires either opening an `.osz` through its Windows file association or installing a separate native companion/protocol handler, neither of which can be safely installed by a web userscript.
 
 ## Important differences from the desktop build
 
