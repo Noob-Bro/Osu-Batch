@@ -2,7 +2,7 @@
 // @name         osu! Batch Web
 // @name:zh-CN   osu! Batch 网页版
 // @namespace    https://github.com/Noob-Bro/Osu-Batch
-// @version      0.3.2
+// @version      0.3.3
 // @description  Batch-search and download osu! beatmapsets from osu.ppy.sh.
 // @description:zh-CN 在 osu! 官网筛选、收集并批量下载谱面集。
 // @author       Noob-Bro
@@ -410,6 +410,35 @@
         return present.concat(missing);
     }
 
+    function downloadFilename(item, noVideo = false) {
+        const clean = value => String(value || '')
+            .replace(/\s+/g, ' ')
+            .replace(/[<>:"/\\|?*\x00-\x1f\x7f]/g, '_')
+            .trim().replace(/[. ]+$/g, '');
+        const metadata = [clean(item.artist), clean(item.title)].filter(Boolean).join(' - ');
+        const prefix = `${item.sid}${noVideo ? '-novideo' : ''}`;
+        let basename = metadata ? `${prefix} ${metadata}` : prefix;
+        // Leave room for the extension and avoid splitting UTF-16 surrogate pairs.
+        basename = basename.slice(0, 216).replace(/[\uD800-\uDBFF]$/, '').replace(/[. ]+$/g, '');
+        return `${basename}.osz`;
+    }
+
+    async function resolveDownloadMetadata(item, fetchMetadata = fetch, signal) {
+        if (String(item.artist || '').trim() && String(item.title || '').trim()) return;
+        const params = new URLSearchParams({ q: String(item.sid), s: 'any', nsfw: 'true' });
+        const response = await fetchMetadata(`/beatmapsets/search?${params}`, {
+            credentials: 'include', signal,
+            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        const record = Array.isArray(data.beatmapsets) ? data.beatmapsets.find(row => Number(row.id) === item.sid) : null;
+        if (record) {
+            if (!String(item.artist || '').trim()) item.artist = String(record.artist || record.artist_unicode || '');
+            if (!String(item.title || '').trim()) item.title = String(record.title || record.title_unicode || '');
+        }
+    }
+
     function downloadUrl(source, sid, noVideo) {
         if (source === 'official') return `https://osu.ppy.sh/beatmapsets/${sid}/download${noVideo ? '?noVideo=1' : ''}`;
         if (source === 'sayobot') return `https://txy1.sayobot.cn/beatmaps/download/${noVideo ? 'novideo' : 'full'}/${sid}`;
@@ -639,18 +668,22 @@
 
         function gmDownload(item) {
             const url = downloadUrl(state.source, item.sid, state.noVideo);
-            const filename = `${item.sid}${state.noVideo ? '-novideo' : ''}.osz`;
+            const filename = downloadFilename(item, state.noVideo);
             return new Promise((resolve, reject) => {
-                const fallback = () => {
-                    const frame = document.createElement('iframe');
-                    frame.hidden = true; frame.src = url; document.body.appendChild(frame);
-                    setTimeout(() => frame.remove(), 60000);
+                const fallback = async () => {
+                    const blob = await requestBlob(url, item);
+                    const objectUrl = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = objectUrl; link.download = filename; link.hidden = true;
+                    document.body.appendChild(link);
+                    try { link.click(); }
+                    finally { link.remove(); setTimeout(() => URL.revokeObjectURL(objectUrl), 60000); }
                     resolve(true);
                 };
                 const fail = error => {
                     activeDownload = null;
                     const reason = String(error && (error.details || error.error || error.message) || 'Download failed');
-                    if (/not_whitelisted/i.test(reason)) fallback(); else reject(new Error(reason));
+                    if (/not_whitelisted/i.test(reason)) fallback().catch(reject); else reject(new Error(reason));
                 };
                 try {
                     activeDownload = GM_download({
@@ -690,7 +723,7 @@
 
         async function folderDownload(item, directory) {
             const url = downloadUrl(state.source, item.sid, state.noVideo);
-            const filename = `${item.sid}${state.noVideo ? '-novideo' : ''}.osz`;
+            const filename = downloadFilename(item, state.noVideo);
             const blob = await requestBlob(url, item);
             const fileHandle = await directory.getFileHandle(filename, { create: true });
             const writable = await fileHandle.createWritable();
@@ -741,6 +774,15 @@
                 if (item.status === 'done') continue;
                 item.status = 'downloading'; item.message = ''; saveState(); render();
                 try {
+                    if (!String(item.artist || '').trim() || !String(item.title || '').trim()) {
+                        const controller = new AbortController();
+                        activeDownload = controller;
+                        const timer = setTimeout(() => controller.abort(), 10000);
+                        try { await resolveDownloadMetadata(item, fetch, controller.signal); }
+                        catch (_) { /* Missing metadata must not prevent the download itself. */ }
+                        finally { clearTimeout(timer); activeDownload = null; }
+                        if (stopRequested || !running) { item.status = 'paused'; saveState(); break; }
+                    }
                     const usedFallback = directMode
                         ? (await folderDownload(item, downloadDirectory), false)
                         : await gmDownload(item);
@@ -809,6 +851,5 @@
         }).observe(document.body, { childList: true, subtree: true });
     }
 
-    return { init, parseInput, normalized, parseOsuDb, buildSearchParams, normaliseRecord, recordMatches, sortRecords, downloadUrl };
+    return { init, parseInput, normalized, parseOsuDb, buildSearchParams, normaliseRecord, recordMatches, sortRecords, downloadUrl, downloadFilename, resolveDownloadMetadata };
 });
-
