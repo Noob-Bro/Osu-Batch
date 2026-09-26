@@ -22,6 +22,7 @@ This branch contains a browser userscript version of osu! Batch. It runs on `htt
 - Exact artist matching after normalising Unicode width and letter case.
 - Import osu!stable's `osu!.db` locally and detect installed beatmapsets by BeatmapSet ID. Matching rows in the queue and links on osu! webpages are highlighted pale green.
 - Persistent download queue, pause/resume, configurable spacing, and completed/failed states.
+- Download filenames use `ID Artist - Title.osz`, for example `824423 Renri - Rinne Tensei.osz`. No-video downloads retain the prefix marker: `824423-novideo Renri - Rinne Tensei.osz`. Windows-invalid characters are replaced and long names are shortened. For ID/link-only entries, missing names are looked up before downloading; unavailable metadata falls back to the known fields or ID. Existing files are not renamed.
 - Edge/Chrome direct-folder mode: choose a destination folder once, then save the complete queue there without one browser confirmation per file.
 - Official downloads use the current browser login session; the script never asks for or stores an `osu_session` cookie.
 - Optional Sayobot, Nerinyan, and Mino download sources. Mirrors are always selected explicitly.
@@ -60,4 +61,3 @@ node --test tampermonkey/osu-batch.test.js
 ```
 
 The test does not perform network downloads.
-
