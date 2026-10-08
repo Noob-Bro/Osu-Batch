@@ -21,7 +21,7 @@ This branch contains a browser userscript version of osu! Batch. It runs on `htt
 - Paginated search results with individual checkboxes, select-all/select-none, and an explicit **Add selected** action. Searching no longer adds every result directly to the download queue.
 - Exact artist matching after normalising Unicode width and letter case.
 - Import osu!stable's `osu!.db` locally and detect installed beatmapsets by BeatmapSet ID. Matching rows in the queue and links on osu! webpages are highlighted pale green.
-- Persistent download queue, pause/resume, configurable spacing, and completed/failed states.
+- Persistent download queue with 1–6 concurrent downloads (3 by default), configurable spacing between new starts, pause/resume, and completed/failed states. Pausing cancels all active requests.
 - Download filenames use `ID Artist - Title.osz`, for example `824423 Renri - Rinne Tensei.osz`. No-video downloads retain the prefix marker: `824423-novideo Renri - Rinne Tensei.osz`. Windows-invalid characters are replaced and long names are shortened. For ID/link-only entries, missing names are looked up before downloading; unavailable metadata falls back to the known fields or ID. Existing files are not renamed.
 - Edge/Chrome direct-folder mode: choose a destination folder once, then save the complete queue there without one browser confirmation per file.
 - Official downloads use the current browser login session; the script never asks for or stores an `osu_session` cookie.
@@ -39,7 +39,7 @@ The browser requires this explicit file selection and cannot silently open that 
 
 ## Unattended batch downloads
 
-Keep **Save method** set to **Choose folder once (recommended)**. When **Start / resume** is clicked, Edge or Chrome asks for a destination directory once. After permission is granted, Tampermonkey follows the download redirect and writes each completed `.osz` into that directory. Files are handled sequentially, so only one download is buffered at a time.
+Keep **Save method** set to **Choose folder once (recommended)**. When **Start / resume** is clicked, Edge or Chrome asks for a destination directory once. After permission is granted, Tampermonkey follows the download redirect and writes each completed `.osz` into that directory. **Concurrent downloads** controls how many tasks may run at once (1–6); **Interval** spaces out the start of new downloads. Larger concurrency can use substantially more browser memory because each direct-folder download is buffered before saving. Start with 3 and reduce it if the website rate-limits requests or the browser becomes unresponsive.
 
 The directory handle is retained for the current page session. After reloading the osu! page, choose the directory again. **Browser downloads** remains available as a compatibility mode. Version 0.3.2 allows the parent `ppy.sh` domain so Tampermonkey also permits numbered official download hosts such as `bm11.ppy.sh` after redirects.
 
@@ -54,10 +54,10 @@ The directory handle is retained for the current page session. After reloading t
 
 ## Development test
 
-The pure parsing/filtering functions can be tested with Node.js:
+The parsing/filtering and concurrent-queue behavior can be tested with Node.js:
 
 ```powershell
-node --test tampermonkey/osu-batch.test.js
+node --test tampermonkey/osu-batch.test.js tampermonkey/osu-batch.concurrent.test.js
 ```
 
-The test does not perform network downloads.
+The tests use mocked downloads and do not access the network.
