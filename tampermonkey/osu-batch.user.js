@@ -2,7 +2,7 @@
 // @name         osu! Batch Web
 // @name:zh-CN   osu! Batch 网页版
 // @namespace    https://github.com/Noob-Bro/Osu-Batch
-// @version      0.3.3
+// @version      0.3.4
 // @description  Batch-search and download osu! beatmapsets from osu.ppy.sh.
 // @description:zh-CN 在 osu! 官网筛选、收集并批量下载谱面集。
 // @author       Noob-Bro
@@ -66,7 +66,7 @@
             title: 'osu! Batch Web', hide: 'Hide', input: 'Beatmapset links or IDs', add: 'Add to queue',
             collect: 'Collect this page', search: 'Search all pages', stopSearch: 'Stop search',
             artist: 'Artist', titleField: 'Title', creator: 'Mapper', exact: 'Exact artist', status: 'Status',
-            mode: 'Mode', any: 'Any', source: 'Download source', noVideo: 'No video', interval: 'Interval (s)',
+            mode: 'Mode', any: 'Any', source: 'Download source', noVideo: 'No video', interval: 'Interval (s)', concurrency: 'Concurrent downloads',
             downloadMode: 'Save method', folderMode: 'Choose folder once (recommended)', browserMode: 'Browser downloads',
             artistRomanized: 'Artist (romanized)', titleRomanized: 'Title (romanized)', sourceText: 'Source',
             genre: 'Genre', language: 'Language', bpmMin: 'Min BPM', bpmMax: 'Max BPM',
@@ -99,7 +99,7 @@
             title: 'osu! Batch 网页版', hide: '隐藏', input: '谱面集链接或 ID', add: '加入队列',
             collect: '收集当前页面', search: '搜索全部分页', stopSearch: '停止搜索',
             artist: '艺术家', titleField: '歌名', creator: '谱师', exact: '艺术家精确匹配', status: '状态',
-            mode: '模式', any: '不限', source: '下载来源', noVideo: '不含视频', interval: '间隔（秒）',
+            mode: '模式', any: '不限', source: '下载来源', noVideo: '不含视频', interval: '间隔（秒）', concurrency: '同时下载数',
             downloadMode: '保存方式', folderMode: '一次选择文件夹（推荐）', browserMode: '浏览器下载',
             artistRomanized: '艺术家（罗马字）', titleRomanized: '歌名（罗马字）', sourceText: '来源',
             genre: '曲风', language: '语言', bpmMin: '最低 BPM', bpmMax: '最高 BPM',
@@ -448,6 +448,12 @@
     }
 
     function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+    async function runConcurrent(items, limit, work, shouldStop = () => false) {
+        let next = 0;
+        await Promise.all(Array.from({ length: Math.min(Math.max(1, Math.floor(limit)), items.length) }, async () => {
+            while (!shouldStop() && next < items.length) await work(items[next++]);
+        }));
+    }
     function escapeHtml(value) {
         return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
     }
@@ -459,7 +465,7 @@
         let running = false;
         let searching = false;
         let stopRequested = false;
-        let activeDownload = null;
+        const activeDownloads = new Set();
         let downloadDirectory = null;
         let notice = '';
         let localIds = new Set(state.localSetIds);
@@ -471,7 +477,7 @@
         function defaults() {
             return {
                 language: 'en',
-                queue: [], source: 'official', noVideo: false, interval: 1.5, downloadMode: 'folder',
+                queue: [], source: 'official', noVideo: false, interval: 1.5, concurrency: 3, downloadMode: 'folder',
                 localSetIds: [],
                 filters: {
                     artist: '', artistRomanized: '', title: '', titleRomanized: '', creator: '', sourceText: '',
@@ -492,6 +498,7 @@
                     ...fallback, ...saved,
                     queue: Array.isArray(saved.queue) ? saved.queue.filter(x => Number.isInteger(x.sid)) : [],
                     downloadMode: saved.downloadMode === 'browser' ? 'browser' : 'folder',
+                    concurrency: Math.max(1, Math.min(6, Math.floor(Number(saved.concurrency) || 3))),
                     localSetIds: Array.isArray(saved.localSetIds) ? saved.localSetIds.filter(x => Number.isInteger(x) && x > 0 && x < MAX_ID) : [],
                     filters: { ...fallback.filters, ...(saved.filters || {}) },
                 };
@@ -598,13 +605,14 @@
                         <label class="obw-check"><input type="checkbox" data-field="sortDescending" ${f.sortDescending ? 'checked' : ''}> ${tr('sortDescending')}</label>
                     </div></details>
                     <div class="obw-grid">
-                        <label>${tr('source')}<select data-setting="source">${Object.entries(SOURCES).map(([v,n]) => `<option value="${v}" ${state.source === v ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
-                        <label>${tr('downloadMode')}<select data-setting="downloadMode"><option value="folder" ${state.downloadMode === 'folder' ? 'selected' : ''}>${tr('folderMode')}</option><option value="browser" ${state.downloadMode === 'browser' ? 'selected' : ''}>${tr('browserMode')}</option></select></label>
-                        <label>${tr('interval')}<input data-setting="interval" type="number" min="1" max="60" step="0.5" value="${Number(state.interval)}"></label>
+                        <label>${tr('source')}<select data-setting="source" ${running ? 'disabled' : ''}>${Object.entries(SOURCES).map(([v,n]) => `<option value="${v}" ${state.source === v ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+                        <label>${tr('downloadMode')}<select data-setting="downloadMode" ${running ? 'disabled' : ''}><option value="folder" ${state.downloadMode === 'folder' ? 'selected' : ''}>${tr('folderMode')}</option><option value="browser" ${state.downloadMode === 'browser' ? 'selected' : ''}>${tr('browserMode')}</option></select></label>
+                        <label>${tr('interval')}<input data-setting="interval" type="number" min="0.5" max="60" step="0.5" value="${Number(state.interval)}" ${running ? 'disabled' : ''}></label>
+                        <label>${tr('concurrency')}<input data-setting="concurrency" type="number" min="1" max="6" step="1" value="${Number(state.concurrency)}" ${running ? 'disabled' : ''}></label>
                     </div>
-                    <div class="obw-row"><label><input type="checkbox" data-setting="noVideo" ${state.noVideo ? 'checked' : ''}> ${tr('noVideo')}</label><button data-action="search" class="primary" ${searching || running ? 'disabled' : ''}>${tr('search')}</button><button data-action="stopSearch" ${!searching ? 'disabled' : ''}>${tr('stopSearch')}</button></div>
+                    <div class="obw-row"><label><input type="checkbox" data-setting="noVideo" ${state.noVideo ? 'checked' : ''} ${running ? 'disabled' : ''}> ${tr('noVideo')}</label><button data-action="search" class="primary" ${searching || running ? 'disabled' : ''}>${tr('search')}</button><button data-action="stopSearch" ${!searching ? 'disabled' : ''}>${tr('stopSearch')}</button></div>
                     <div class="obw-row"><textarea id="obw-input" placeholder="${tr('input')}"></textarea><button data-action="add">${tr('add')}</button><button data-action="collect">${tr('collect')}</button></div>
-                    <div class="obw-row"><button data-action="start" class="primary" ${running || searching ? 'disabled' : ''}>${tr('start')}</button><button data-action="pause" ${!running ? 'disabled' : ''}>${tr('pause')}</button><button data-action="clearDone" ${running || searching ? 'disabled' : ''}>${tr('clearDone')}</button><button data-action="clearAll" ${running || searching ? 'disabled' : ''}>${tr('clearAll')}</button><span class="obw-count">${state.queue.length}</span></div>
+                    <div class="obw-row"><button data-action="start" class="primary" ${running || searching ? 'disabled' : ''}>${tr('start')}</button><button data-action="pause" ${!running || stopRequested ? 'disabled' : ''}>${tr('pause')}</button><button data-action="clearDone" ${running || searching ? 'disabled' : ''}>${tr('clearDone')}</button><button data-action="clearAll" ${running || searching ? 'disabled' : ''}>${tr('clearAll')}</button><span class="obw-count">${state.queue.length}</span></div>
                     <div class="obw-row"><button data-action="loadDb">${tr('loadDb')}</button><button data-action="clearDb" ${state.localSetIds.length ? '' : 'disabled'}>${tr('clearDb')}</button><span>${state.localSetIds.length ? `${state.localSetIds.length} ${tr('metadata')}` : ''}</span><input id="obw-db-file" type="file" accept=".db,application/octet-stream" hidden></div>
                     <div class="obw-note">${tr('login')} ${state.downloadMode === 'browser' ? tr('browserLimit') : ''}</div><div class="obw-note obw-warn">${tr('localLimit')}</div><div class="obw-state">${escapeHtml(notice)}</div>
                     ${resultPanel}
@@ -662,49 +670,67 @@
             panel.querySelectorAll('[data-setting]').forEach(el => {
                 state[el.dataset.setting] = el.type === 'checkbox' ? el.checked : el.value;
             });
-            state.interval = Math.max(1, Math.min(60, Number(state.interval) || 1.5));
+            state.interval = Math.max(0.5, Math.min(60, Number(state.interval) || 1.5));
+            state.concurrency = Math.max(1, Math.min(6, Math.floor(Number(state.concurrency) || 3)));
             saveState();
         }
 
-        function gmDownload(item) {
-            const url = downloadUrl(state.source, item.sid, state.noVideo);
-            const filename = downloadFilename(item, state.noVideo);
+        function managedRequest(start) {
             return new Promise((resolve, reject) => {
-                const fallback = async () => {
-                    const blob = await requestBlob(url, item);
-                    const objectUrl = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = objectUrl; link.download = filename; link.hidden = true;
-                    document.body.appendChild(link);
-                    try { link.click(); }
-                    finally { link.remove(); setTimeout(() => URL.revokeObjectURL(objectUrl), 60000); }
-                    resolve(true);
+                let handle;
+                let settled = false;
+                const finish = (callback, value) => {
+                    if (settled) return;
+                    settled = true;
+                    activeDownloads.delete(task);
+                    callback(value);
                 };
-                const fail = error => {
-                    activeDownload = null;
-                    const reason = String(error && (error.details || error.error || error.message) || 'Download failed');
-                    if (/not_whitelisted/i.test(reason)) fallback().catch(reject); else reject(new Error(reason));
+                const task = {
+                    abort: () => {
+                        if (settled) return;
+                        try { if (handle && typeof handle.abort === 'function') handle.abort(); }
+                        catch (_) { /* Still settle the cancelled request. */ }
+                        finish(reject, new Error(tr('stopped')));
+                    },
                 };
-                try {
-                    activeDownload = GM_download({
-                        url, name: filename, saveAs: false, anonymous: false,
-                        headers: state.source === 'official' ? { Referer: `https://osu.ppy.sh/beatmapsets/${item.sid}` } : {},
-                        onload: () => { activeDownload = null; resolve(false); },
-                        onerror: fail,
-                        ontimeout: () => { activeDownload = null; reject(new Error('Download timed out')); },
-                    });
-                } catch (error) { fail(error); }
+                activeDownloads.add(task);
+                try { handle = start(value => finish(resolve, value), error => finish(reject, error)); }
+                catch (error) { finish(reject, error); }
+                if (stopRequested) task.abort();
             });
         }
 
+        async function gmDownload(item) {
+            const url = downloadUrl(state.source, item.sid, state.noVideo);
+            const filename = downloadFilename(item, state.noVideo);
+            try {
+                await managedRequest((resolve, reject) => GM_download({
+                        url, name: filename, saveAs: false, anonymous: false,
+                        headers: state.source === 'official' ? { Referer: `https://osu.ppy.sh/beatmapsets/${item.sid}` } : {},
+                        onload: resolve,
+                        onerror: error => reject(new Error(String(error && (error.details || error.error || error.message) || 'Download failed'))),
+                        ontimeout: () => reject(new Error('Download timed out')),
+                    }));
+                return false;
+            } catch (error) {
+                if (stopRequested || !/not_whitelisted/i.test(error.message || '')) throw error;
+                const blob = await requestBlob(url, item);
+                if (stopRequested) throw new Error(tr('stopped'));
+                const objectUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = objectUrl; link.download = filename; link.hidden = true;
+                document.body.appendChild(link);
+                try { link.click(); }
+                finally { link.remove(); setTimeout(() => URL.revokeObjectURL(objectUrl), 60000); }
+                return true;
+            }
+        }
+
         function requestBlob(url, item) {
-            return new Promise((resolve, reject) => {
-                try {
-                    activeDownload = GM_xmlhttpRequest({
+            return managedRequest((resolve, reject) => GM_xmlhttpRequest({
                         method: 'GET', url, responseType: 'blob', anonymous: false, timeout: 180000,
                         headers: state.source === 'official' ? { Referer: `https://osu.ppy.sh/beatmapsets/${item.sid}`, Accept: 'application/octet-stream' } : {},
                         onload: response => {
-                            activeDownload = null;
                             if (response.status < 200 || response.status >= 300) reject(new Error(`HTTP ${response.status}`));
                             else if (/content-type:\s*text\/html/i.test(response.responseHeaders || '')) reject(new Error('Download returned a web page; sign in to osu! first'));
                             else {
@@ -713,22 +739,28 @@
                                 else resolve(blob);
                             }
                         },
-                        onerror: error => { activeDownload = null; reject(new Error(error && (error.error || error.message) || 'Download failed')); },
-                        ontimeout: () => { activeDownload = null; reject(new Error('Download timed out')); },
-                        onabort: () => { activeDownload = null; reject(new Error(tr('stopped'))); },
-                    });
-                } catch (error) { activeDownload = null; reject(error); }
-            });
+                        onerror: error => reject(new Error(error && (error.error || error.message) || 'Download failed')),
+                        ontimeout: () => reject(new Error('Download timed out')),
+                        onabort: () => reject(new Error(tr('stopped'))),
+                    }));
         }
 
         async function folderDownload(item, directory) {
             const url = downloadUrl(state.source, item.sid, state.noVideo);
             const filename = downloadFilename(item, state.noVideo);
             const blob = await requestBlob(url, item);
+            if (stopRequested) throw new Error(tr('stopped'));
             const fileHandle = await directory.getFileHandle(filename, { create: true });
+            if (stopRequested) throw new Error(tr('stopped'));
             const writable = await fileHandle.createWritable();
-            try { await writable.write(blob); await writable.close(); }
-            catch (error) { try { await writable.abort(); } catch (_) { /* already closed */ } throw error; }
+            activeDownloads.add(writable);
+            try {
+                if (stopRequested) throw new Error(tr('stopped'));
+                await writable.write(blob);
+                if (stopRequested) throw new Error(tr('stopped'));
+                await writable.close();
+            } catch (error) { try { await writable.abort(); } catch (_) { /* already closed */ } throw error; }
+            finally { activeDownloads.delete(writable); }
         }
 
         async function loadLocalDatabase(file) {
@@ -751,50 +783,59 @@
         }
 
         async function runQueue() {
-            if (running) return;
+            if (running || searching) return;
             syncControls();
             if (state.noVideo && state.source === 'mino') { notice = tr('unsupportedNoVideo'); render(); return; }
             const directMode = state.downloadMode === 'folder';
-            if (directMode && !downloadDirectory) {
-                const hostWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-                if (typeof hostWindow.showDirectoryPicker !== 'function') { notice = tr('folderUnsupported'); render(); return; }
-                try {
+            const pending = state.queue.filter(item => item.status !== 'done');
+            if (!pending.length) return;
+            running = true; stopRequested = false; render();
+            try {
+                if (directMode && !downloadDirectory) {
+                    const hostWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
+                    if (typeof hostWindow.showDirectoryPicker !== 'function') { notice = tr('folderUnsupported'); return; }
                     downloadDirectory = await hostWindow.showDirectoryPicker.call(hostWindow, {
                         id: 'osu-batch-downloads', mode: 'readwrite', startIn: 'downloads',
                     });
                     notice = tr('folderReady', downloadDirectory.name);
-                } catch (error) {
-                    notice = error && error.name === 'AbortError' ? tr('folderCancelled') : (error.message || String(error));
-                    render(); return;
                 }
-            }
-            running = true; stopRequested = false;
-            for (const item of state.queue) {
-                if (!running || stopRequested) break;
-                if (item.status === 'done') continue;
-                item.status = 'downloading'; item.message = ''; saveState(); render();
-                try {
-                    if (!String(item.artist || '').trim() || !String(item.title || '').trim()) {
-                        const controller = new AbortController();
-                        activeDownload = controller;
-                        const timer = setTimeout(() => controller.abort(), 10000);
-                        try { await resolveDownloadMetadata(item, fetch, controller.signal); }
-                        catch (_) { /* Missing metadata must not prevent the download itself. */ }
-                        finally { clearTimeout(timer); activeDownload = null; }
-                        if (stopRequested || !running) { item.status = 'paused'; saveState(); break; }
+                let nextStartAt = 0;
+                const waitForStartSlot = async () => {
+                    const scheduled = Math.max(Date.now(), nextStartAt);
+                    nextStartAt = scheduled + state.interval * 1000;
+                    while (!stopRequested && Date.now() < scheduled) await delay(Math.min(100, scheduled - Date.now()));
+                    if (stopRequested) throw new Error(tr('stopped'));
+                };
+                await runConcurrent(pending, state.concurrency, async item => {
+                    item.status = 'downloading'; item.message = ''; saveState(); render();
+                    try {
+                        if (!String(item.artist || '').trim() || !String(item.title || '').trim()) {
+                            const controller = new AbortController();
+                            activeDownloads.add(controller);
+                            const timer = setTimeout(() => controller.abort(), 10000);
+                            try { await resolveDownloadMetadata(item, fetch, controller.signal); }
+                            catch (_) { /* Missing metadata must not prevent the download itself. */ }
+                            finally { clearTimeout(timer); activeDownloads.delete(controller); }
+                        }
+                        await waitForStartSlot();
+                        const usedFallback = directMode
+                            ? (await folderDownload(item, downloadDirectory), false)
+                            : await gmDownload(item);
+                        item.status = 'done';
+                        if (usedFallback) item.message = tr('nativeFallback');
+                    } catch (error) {
+                        item.status = stopRequested ? 'paused' : 'failed';
+                        item.message = error && error.message ? error.message : String(error);
                     }
-                    const usedFallback = directMode
-                        ? (await folderDownload(item, downloadDirectory), false)
-                        : await gmDownload(item);
-                    item.status = 'done';
-                    if (usedFallback) item.message = tr('nativeFallback');
-                }
-                catch (error) { item.status = stopRequested ? 'paused' : 'failed'; item.message = error.message || String(error); }
+                    saveState(); render();
+                }, () => stopRequested);
+            } catch (error) {
+                if (!stopRequested) notice = error && error.name === 'AbortError' ? tr('folderCancelled') : (error.message || String(error));
+            } finally {
+                for (const item of pending) if (item.status === 'downloading') item.status = 'paused';
+                running = false; stopRequested = false;
                 saveState(); render();
-                if (!stopRequested) await delay(state.interval * 1000);
             }
-            running = false; stopRequested = false; activeDownload = null;
-            render();
         }
 
         panel.addEventListener('change', event => {
@@ -837,7 +878,16 @@
             } else if (action === 'search') await officialSearch();
             else if (action === 'stopSearch') stopRequested = true;
             else if (action === 'start') await runQueue();
-            else if (action === 'pause') { stopRequested = true; running = false; if (activeDownload && typeof activeDownload.abort === 'function') activeDownload.abort(); notice = tr('stopped'); render(); }
+            else if (action === 'pause' && running) {
+                stopRequested = true;
+                for (const task of [...activeDownloads]) {
+                    try {
+                        const result = task.abort();
+                        if (result && typeof result.catch === 'function') result.catch(() => {});
+                    } catch (_) { /* One failed abort must not prevent cancelling the others. */ }
+                }
+                notice = tr('stopped'); render();
+            }
             else if (action === 'clearDone') { state.queue = state.queue.filter(item => item.status !== 'done'); saveState(); render(); }
             else if (action === 'clearAll' && window.confirm(tr('confirmClear'))) { state.queue = []; saveState(); render(); }
         });
@@ -851,5 +901,5 @@
         }).observe(document.body, { childList: true, subtree: true });
     }
 
-    return { init, parseInput, normalized, parseOsuDb, buildSearchParams, normaliseRecord, recordMatches, sortRecords, downloadUrl, downloadFilename, resolveDownloadMetadata };
+    return { init, parseInput, normalized, parseOsuDb, buildSearchParams, normaliseRecord, recordMatches, sortRecords, downloadUrl, downloadFilename, resolveDownloadMetadata, runConcurrent };
 });
