@@ -1,29 +1,3 @@
-# osu! Batch — Legacy Python / Windows Edition
-
-**English** | [简体中文](README.zh-CN.md)
-
-> [!IMPORTANT]
-> **Discontinued as of 2026-10-24.** Development of the Python desktop application and Windows executable has stopped. No new desktop features, fixes or packaged releases are planned.
-> Future development focuses on the **Web / Tampermonkey edition** on `tampermonkey-web`.
-
-## Use the maintained Web edition
-
-[Web project and documentation](https://github.com/Noob-Bro/Osu-Batch/tree/tampermonkey-web) · [Install userscript](https://raw.githubusercontent.com/Noob-Bro/Osu-Batch/tampermonkey-web/tampermonkey/osu-batch.user.js) · [中文介绍](https://github.com/Noob-Bro/Osu-Batch/blob/tampermonkey-web/README.zh-CN.md)
-
-The Web edition runs on osu.ppy.sh through Tampermonkey, uses the browser's official login session, and supports advanced search, selectable official/mirror downloads, concurrent queues and local stable `osu!.db` detection. It needs no Python or EXE.
-
-## Existing desktop users
-
-- This `main` branch is the legacy desktop branch. The last published desktop release is [1.1.1](https://github.com/Noob-Bro/Osu-Batch/releases/tag/1.1.1); [older releases](https://github.com/Noob-Bro/Osu-Batch/releases) remain available.
-- Existing source and release assets are retained. The retained Python/build files do not imply ongoing maintenance.
-- Keep your existing queue and settings under `%LOCALAPPDATA%\OsuBatch`. This repository documentation update does not delete local data or downloaded files.
-- The Web queue uses Tampermonkey storage and does not automatically migrate the desktop SQLite database. Add links/IDs again, or paste an exported desktop failed-task list.
-- Web pause/resume continues the queue but restarts unfinished files; it does not provide desktop partial-file resume or archive validation.
-- The historical usage, build and validation instructions below describe the desktop edition and are not current Web instructions or a new compatibility/security certification.
-
-<details>
-<summary>Historical Python / Windows documentation</summary>
-
 # osu! Batch — Batch Beatmap Downloader for Windows
 <img width="2172" height="724" alt="image" src="https://github.com/user-attachments/assets/871a76ac-b44a-410b-b81d-fbe31421835a" />
 
@@ -39,7 +13,11 @@ The Web edition runs on osu.ppy.sh through Tampermonkey, uses the browser's offi
 >
 > Verify the download source, scan the files if necessary, or review the source code and build the application yourself if you have concerns.
 
-This repository contains **osu! Batch 1.1.1 (2026-09-16)** with the UI fixes, Chinese/English language switching, and advanced filtering features.
+This branch preserves **osu! Batch 1.1.1 (2026-09-16)**, the legacy Python / Windows edition with UI fixes, Chinese/English language switching, and advanced filtering features.
+
+**Python / Windows executable development stopped on 2026-10-24.** No further desktop features, fixes or packaged releases are planned. Future development and the repository's default branch are **[`tampermonkey-web`](https://github.com/Noob-Bro/Osu-Batch/tree/tampermonkey-web)**. [Install the Web userscript](https://raw.githubusercontent.com/Noob-Bro/Osu-Batch/tampermonkey-web/tampermonkey/osu-batch.user.js) or read its [English guide](https://github.com/Noob-Bro/Osu-Batch/blob/tampermonkey-web/README.md) / [中文说明](https://github.com/Noob-Bro/Osu-Batch/blob/tampermonkey-web/README.zh-CN.md).
+
+The desktop source and historical releases remain available. The instructions below describe that legacy edition. The Web edition has separate queue storage and does not automatically migrate the desktop SQLite queue.
 
 The source code is located in the repository root. The portable Windows x64 build is available from **Releases**. Extract the entire archive before running `OsuBatch.exe`.
 
@@ -75,9 +53,7 @@ For example, you may search with Sayobot and then download using the official so
 
 Version 1.1.1 adds a confirmation-protected **Clear all download records** button. It clears only queue records and does not delete downloaded `.osz` files or partial files. The new version continues using the existing queue database. Close the previous version before upgrading.
 
-The main window can scan an osu!stable `Songs` folder for queued beatmapsets. It builds and reuses an in-memory beatmapset-ID index: folders beginning with an ID require no file reads, while artist/title-named folders read only the first `.osu` file containing a valid `BeatmapSetID` instead of rereading every difficulty. The filter-results window reuses the same index, and library directory changes invalidate it automatically. Matching rows are highlighted in pale green. The background scan is read-only. The default folder is `%LOCALAPPDATA%\osu!\Songs`; custom installations can select another folder.
-
-osu!lazer has no artist/title-based `Songs` directory: files are stored by SHA-256 and mapped through `client.realm`. Reliable lazer detection must query `BeatmapSet.OnlineID` using a Realm-compatible, dynamic read-only reader. This build does not yet bundle that Realm component and never migrates or writes the lazer database.
+The main window can scan an osu!stable `Songs` folder for queued beatmapsets. It builds and reuses an in-memory beatmapset-ID index: folders beginning with an ID require no file reads, while artist/title-named folders read only the first `.osu` file containing a valid `BeatmapSetID` instead of rereading every difficulty. The filter-results window reuses the same index, and library directory changes invalidate it automatically. Matching rows are highlighted in pale green. The background scan is read-only. The default folder is `%LOCALAPPDATA%\osu!\Songs`; custom installations can select another folder.\n\nosu!lazer has no artist/title-based `Songs` directory: files are stored by SHA-256 and mapped through `client.realm`. Reliable lazer detection must query `BeatmapSet.OnlineID` using a Realm-compatible, dynamic read-only reader. This build does not yet bundle that Realm component and never migrates or writes the lazer database.
 
 ### Filtering Semantics
 
@@ -365,6 +341,3 @@ VALIDATION.md
 ## License
 
 See [`LICENSE`](LICENSE) for license information.
-
-
-</details>

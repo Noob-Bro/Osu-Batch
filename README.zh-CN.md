@@ -1,29 +1,3 @@
-# osu! Batch — Python / Windows 历史版本
-
-[English](README.md) | **简体中文**
-
-> [!IMPORTANT]
-> **自 2026-10-24 起停止开发。** Python 桌面程序与 Windows 可执行版不再新增功能、修复或发布新的打包版本。
-> 后续开发集中于 `tampermonkey-web` 分支的 **Web / Tampermonkey 版**。
-
-## 使用后续维护的 Web 版
-
-[Web 项目与说明](https://github.com/Noob-Bro/Osu-Batch/tree/tampermonkey-web) · [安装用户脚本](https://raw.githubusercontent.com/Noob-Bro/Osu-Batch/tampermonkey-web/tampermonkey/osu-batch.user.js) · [中文介绍](https://github.com/Noob-Bro/Osu-Batch/blob/tampermonkey-web/README.zh-CN.md)
-
-Web 版通过 Tampermonkey 运行在 osu.ppy.sh，使用浏览器官网登录状态，提供高级搜索、官方 / 镜像选择、并发队列与本地 stable `osu!.db` 检测，无需 Python 或 EXE。
-
-## 已有桌面版用户
-
-- 本 `main` 分支保留为桌面旧版分支；最近发布的桌面版本为 [1.1.1](https://github.com/Noob-Bro/Osu-Batch/releases/tag/1.1.1)，[更早 Releases](https://github.com/Noob-Bro/Osu-Batch/releases) 继续保留。
-- 原有源码与发行附件保留；存在 Python / 构建文件不代表继续维护。
-- 原队列与设置位于 `%LOCALAPPDATA%\OsuBatch`。本次仓库文档更新不会删除本机数据或下载文件。
-- Web 队列使用 Tampermonkey 存储，不会自动迁移桌面 SQLite 数据库。请重新加入链接 / ID，或粘贴桌面版导出的失败清单。
-- Web 的暂停 / 继续作用于队列，未完成文件会重新下载，不具备桌面版的部分文件续传与压缩包校验。
-- 下方保留的运行、构建与验证说明均为桌面版历史文档，不是 Web 版操作指南，也不代表新的兼容性或安全认证。
-
-<details>
-<summary>Python / Windows 历史使用说明</summary>
-
 # osu! Batch — Windows 谱面批量下载工具
 <img width="2172" height="724" alt="image" src="https://github.com/user-attachments/assets/d83fc4e9-2461-4f4a-8799-02bcd35069a3" />
 
@@ -39,7 +13,11 @@ Web 版通过 Tampermonkey 运行在 osu.ppy.sh，使用浏览器官网登录状
 >
 > 请确认下载来源；必要时先扫描文件。如果仍有疑虑，请审阅源码并自行构建。
 
-本仓库为 **osu! Batch 1.1.1（2026-09-16）**，包含 UI 修复、中英文界面切换及高级筛选功能。
+本分支保留 **osu! Batch 1.1.1（2026-09-16）** Python / Windows 历史桌面版，包含 UI 修复、中英文界面切换及高级筛选功能。
+
+**Python / Windows 可执行版自 2026-10-24 起停止开发**，不再新增功能、修复或发布新的桌面打包版本。后续开发与仓库默认分支均为 **[`tampermonkey-web`](https://github.com/Noob-Bro/Osu-Batch/tree/tampermonkey-web)**。可[安装 Web 用户脚本](https://raw.githubusercontent.com/Noob-Bro/Osu-Batch/tampermonkey-web/tampermonkey/osu-batch.user.js)，或查看其[中文说明](https://github.com/Noob-Bro/Osu-Batch/blob/tampermonkey-web/README.zh-CN.md) / [English guide](https://github.com/Noob-Bro/Osu-Batch/blob/tampermonkey-web/README.md)。
+
+桌面源码与历史 Releases 继续保留。下文为该历史桌面版的使用说明。Web 版使用独立队列存储，不会自动迁移桌面 SQLite 队列。
 
 源码位于仓库根目录。Windows x64 免安装版请从 **Releases** 下载，完整解压后运行：
 
@@ -53,9 +31,7 @@ OsuBatch.exe
 
 升级前请先关闭旧版程序。已有下载队列和设置会继续保留。
 
-主窗口现在可以扫描 osu!stable 的 `Songs` 曲库并建立可复用的谱面集 ID 索引。文件夹名称以 ID 开头时无需读取文件；艺术家或歌名开头的目录只读取第一份包含有效 `BeatmapSetID` 的 `.osu` 元数据，不再重复读取同一套谱面的全部难度。筛选结果窗口复用同一索引，曲库目录变化时会自动重建。命中行显示淡绿色。扫描在后台执行且只读取文件，不会修改曲库。默认目录是 `%LOCALAPPDATA%\osu!\Songs`，自定义安装位置可手动选择。
-
-osu!lazer 不存在按艺术家或歌名组织的 `Songs` 目录；文件按 SHA-256 散列存放，并由 `client.realm` 维护关联。可靠检测必须使用兼容 Realm 的动态只读组件查询 `BeatmapSet.OnlineID`。本版尚未内置该组件，也不会迁移或写入 lazer 数据库。
+主窗口现在可以扫描 osu!stable 的 `Songs` 曲库并建立可复用的谱面集 ID 索引。文件夹名称以 ID 开头时无需读取文件；艺术家或歌名开头的目录只读取第一份包含有效 `BeatmapSetID` 的 `.osu` 元数据，不再重复读取同一套谱面的全部难度。筛选结果窗口复用同一索引，曲库目录变化时会自动重建。命中行显示淡绿色。扫描在后台执行且只读取文件，不会修改曲库。默认目录是 `%LOCALAPPDATA%\osu!\Songs`，自定义安装位置可手动选择。\n\nosu!lazer 不存在按艺术家或歌名组织的 `Songs` 目录；文件按 SHA-256 散列存放，并由 `client.realm` 维护关联。可靠检测必须使用兼容 Realm 的动态只读组件查询 `BeatmapSet.OnlineID`。本版尚未内置该组件，也不会迁移或写入 lazer 数据库。
 
 **Language / 界面语言：** 首次运行默认使用 **English**。在主窗口右上角可选择 **中文** 或 **English**，切换后立即生效并自动保存；升级时保留已有语言偏好。
 
@@ -372,6 +348,3 @@ VALIDATION.md
 ## License / 许可证
 
 许可证信息请参阅 [`LICENSE`](LICENSE)。
-
-
-</details>
