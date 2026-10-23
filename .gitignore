@@ -1,9 +1,5 @@
-.venv/
-build/
-dist/
-__pycache__/
-.pytest_cache/
-test-tmp-*/
-*.py[cod]
-queue.sqlite3
-
+node_modules/
+coverage/
+*.log
+.DS_Store
+Thumbs.db
