@@ -1,6 +1,10 @@
 # osu! Batch Web — Tampermonkey edition
 
-This branch contains a browser userscript version of osu! Batch. It runs on `https://osu.ppy.sh/*` and does not replace or modify the Python/Windows application on `main`.
+This is the maintained edition of osu! Batch, developed on `tampermonkey-web`. Current userscript version: **0.3.4**. It runs on `https://osu.ppy.sh/*`.
+
+As of **2026-10-24**, development of the Python/Windows executable edition has stopped; its source on `main` and historical Releases are retained. The two editions have separate queue storage and do not automatically migrate data.
+
+[Project overview](../README.md) · [简体中文使用说明](../README.zh-CN.md)
 
 ## Install
 
@@ -22,7 +26,7 @@ This branch contains a browser userscript version of osu! Batch. It runs on `htt
 - Exact artist matching after normalising Unicode width and letter case.
 - Import osu!stable's `osu!.db` locally and detect installed beatmapsets by BeatmapSet ID. Matching rows in the queue and links on osu! webpages are highlighted pale green.
 - Persistent download queue with 1–6 concurrent downloads (3 by default), configurable spacing between new starts, pause/resume, and completed/failed states. Pausing cancels all active requests.
-- Download filenames use `ID Artist - Title.osz`, for example `824423 Renri - Rinne Tensei.osz`. No-video downloads retain the prefix marker: `824423-novideo Renri - Rinne Tensei.osz`. Windows-invalid characters are replaced and long names are shortened. For ID/link-only entries, missing names are looked up before downloading; unavailable metadata falls back to the known fields or ID. Existing files are not renamed.
+- Download filenames use `ID Artist - Title.osz`, for example `824423 Renri - Rinne Tensei.osz`. No-video downloads retain the prefix marker: `824423-novideo Renri - Rinne Tensei.osz`. Windows-invalid characters are replaced and long names are shortened. For ID/link-only entries, missing names are looked up before downloading; unavailable metadata falls back to the known fields or ID. Existing files are not renamed; direct-folder mode can overwrite an existing file with the same name.
 - Edge/Chrome direct-folder mode: choose a destination folder once, then save the complete queue there without one browser confirmation per file.
 - Official downloads use the current browser login session; the script never asks for or stores an `osu_session` cookie.
 - Optional Sayobot, Nerinyan, and Mino download sources. Mirrors are always selected explicitly.
@@ -39,15 +43,15 @@ The browser requires this explicit file selection and cannot silently open that 
 
 ## Unattended batch downloads
 
-Keep **Save method** set to **Choose folder once (recommended)**. When **Start / resume** is clicked, Edge or Chrome asks for a destination directory once. After permission is granted, Tampermonkey follows the download redirect and writes each completed `.osz` into that directory. **Concurrent downloads** controls how many tasks may run at once (1–6); **Interval** spaces out the start of new downloads. Larger concurrency can use substantially more browser memory because each direct-folder download is buffered before saving. Start with 3 and reduce it if the website rate-limits requests or the browser becomes unresponsive.
+Keep **Save method** set to **Choose folder once (recommended)**. When **Start / resume** is clicked, Edge or Chrome asks for a destination directory once. After permission is granted, Tampermonkey follows the download redirect and writes each completed `.osz` into that directory. **Concurrent downloads** controls how many tasks may run at once (1–6); **Interval** spaces out the start of new downloads. Larger concurrency can use substantially more browser memory because each direct-folder download is buffered before saving. The default is 3; reduce it if the website rate-limits requests or the browser becomes unresponsive.
 
-The directory handle is retained for the current page session. After reloading the osu! page, choose the directory again. **Browser downloads** remains available as a compatibility mode. Version 0.3.2 allows the parent `ppy.sh` domain so Tampermonkey also permits numbered official download hosts such as `bm11.ppy.sh` after redirects.
+The directory handle is retained for the current page session. After reloading the osu! page, choose the directory again. **Browser downloads** remains available as a compatibility mode. The script allows the parent `ppy.sh` domain so Tampermonkey also permits numbered official download hosts such as `bm11.ppy.sh` after redirects.
 
-## Important differences from the desktop build
+## Important differences from the discontinued desktop build
 
 - Browsers may ask for permission before allowing multiple downloads. Tampermonkey's download permission must be enabled.
 - Some Tampermonkey configurations reject the `.osz` extension with `not_whitelisted`. Direct-folder mode bypasses this restriction. Browser-download mode retries those cases through the browser's native download path; alternatively add `osz` to Tampermonkey's download file-extension whitelist.
-- The userscript cannot safely provide partial-file resume, ZIP CRC validation, or verify the downloaded `.osz` contents without buffering large files in browser memory.
+- The userscript does not implement partial-file resume, ZIP CRC validation or verification of the downloaded `.osz` contents. Resuming retries unfinished files from the beginning. Direct-folder mode already buffers full downloads in browser memory.
 - osu!stable is supported through user-selected `osu!.db`. The script still cannot silently watch the `Songs` directory, and osu!lazer's `client.realm` is not supported yet.
 - Queue state is Tampermonkey extension storage, not the desktop SQLite queue.
 - The official website and mirror endpoints may change. Failures are shown in the queue and are not silently treated as completed.

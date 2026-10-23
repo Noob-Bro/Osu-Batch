@@ -1,334 +1,105 @@
-# osu! Batch — Batch Beatmap Downloader for Windows
-<img width="2172" height="724" alt="image" src="https://github.com/user-attachments/assets/a0e433f9-bb12-4c1a-a87d-6c3a28d9f125" />
-
+# osu! Batch Web — Batch Beatmap Downloader
 
 **English** | [简体中文](README.zh-CN.md)
 
-> [!WARNING]
-> **Security Notice**
->
-> The Windows executable is packaged with PyInstaller and is not code-signed. Some security products may therefore block or flag it.
->
-> **Do not disable your security software to run this program.**
->
-> Verify the download source, scan the files if necessary, or review the source code and build the application yourself if you have concerns.
-
-This repository contains **osu! Batch 1.1.1 (2026-09-16)** with the UI fixes, Chinese/English language switching, and advanced filtering features.
-
-The source code is located in the repository root. The portable Windows x64 build is available from **Releases**. Extract the entire archive before running `OsuBatch.exe`.
-
-**Running from source:** Clone or download the source code to a writable directory and double-click `start.cmd`.
-
-Python 3.12+ is required. If dependencies are missing, the first launch creates a `.venv` directory inside the project folder and installs the required packages from PyPI. Subsequent launches do not reinstall them.
-
-Close the previous version before upgrading. Existing queues and settings will be preserved.
-
-**Language:** A first launch defaults to **English**. Select **中文** or **English** from the upper-right corner of the main window; the change takes effect immediately and the saved preference is preserved during upgrades.
-
-User input, beatmap titles, and artist names remain in their original language. Filter values and download states are unaffected by the selected interface language.
-
----
-
-## Batch Download by Filters
-
-Open **Filter Search / Batch Download** from the main window.
-
-For example:
-
-1. Select `osu! Official` as the search source after configuring an official website session in the main window, or manually select `Sayobot` without logging in.
-2. Enter `Laur` as the artist and enable **Exact Match**.
-3. Select `Ranked` as the status and `osu! standard (std)` as the mode.
-4. Click **Search All Pages** to view the artist, title, mapper, status, and included modes.
-5. After the search finishes, click **Add All to Download Queue**, return to the main window, and click **Start / Resume**.
-
-If downloads are already running, newly added tasks are appended to the queue automatically.
-
-The **search source** and **download source** are independent.
-
-For example, you may search with Sayobot and then download using the official source configured in the main window. The search source is never changed automatically.
-
-Version 1.1.1 adds a confirmation-protected **Clear all download records** button. It clears only queue records and does not delete downloaded `.osz` files or partial files. The new version continues using the existing queue database. Close the previous version before upgrading.
-
-The main window can scan an osu!stable `Songs` folder for queued beatmapsets. It builds and reuses an in-memory beatmapset-ID index: folders beginning with an ID require no file reads, while artist/title-named folders read only the first `.osu` file containing a valid `BeatmapSetID` instead of rereading every difficulty. The filter-results window reuses the same index, and library directory changes invalidate it automatically. Matching rows are highlighted in pale green. The background scan is read-only. The default folder is `%LOCALAPPDATA%\osu!\Songs`; custom installations can select another folder.\n\nosu!lazer has no artist/title-based `Songs` directory: files are stored by SHA-256 and mapped through `client.realm`. Reliable lazer detection must query `BeatmapSet.OnlineID` using a Realm-compatible, dynamic read-only reader. This build does not yet bundle that Realm component and never migrates or writes the lazer database.
-
-### Filtering Semantics
-
-* **Exact artist matching** ignores letter case, leading/trailing whitespace, and full-width/half-width character differences. Both the regular and Unicode artist fields are checked. `Laur feat. Sennzai` and `Laurinha Costa` do not match `Laur`.
-* **Contains matching** may include collaborations and similar names such as `Laura`. Review the preview results carefully. Artist aliases are not inferred. Leaving the artist field empty disables artist filtering.
-* `Ranked` strictly means `ranked`; legacy `approved` beatmaps are not included. `Approved` can be selected separately.
-* Mode filtering means that the beatmapset contains at least one native difficulty for the selected mode. Mixed-mode beatmapsets may therefore match. The full `.osz` archive is still downloaded; other difficulties are not removed.
-* Official cursor-based pagination and Sayobot `endid` pagination are handled separately. Results are automatically deduplicated and their artist, status, and mode fields are revalidated.
-* If the official site session is missing or expired, the website may ignore filters and return a default list. The application attempts to detect this behavior and rejects such results.
-* If a search is cancelled, encounters network errors, detects repeated pages, or receives fewer official results than expected, it is not marked as complete. **Add All** remains disabled, although selected partial results can still be added explicitly.
-* **All** means every page provided by the selected search source during that search. Mirrors may have synchronization delays, while official search results may be affected by account blocklists, removed content, result limits, or changes that occur during the search. An absolute cross-source and cross-time complete dataset is therefore not guaranteed. New beatmaps are not appended automatically after the search finishes.
-* Official searches include beatmapsets marked as NSFW to avoid silently omitting results. Only textual metadata is displayed; cover images are not shown.
-
----
-
-## Quick Start
-
-Extract the portable Windows build and run:
-
-```text
-OsuBatch.exe
-```
-
-Designed for:
-
-* Windows 10 22H2 64-bit
-* Windows 11 64-bit
-
-This release was verified on Windows 11.
-
-1. Select a download directory.
-2. The default strategy is **Official Only**. Click **Set Official Session** and provide your own official website Cookie according to the instructions shown in the application. The session exists only for the current process.
-3. Paste beatmapset URLs or IDs, or import a UTF-8 TXT file, then click **Add to Queue**.
-4. Click **Start / Resume**. If you need mirrors, select an automatic fallback strategy or a mirror-only strategy.
-5. When finished, drag the `.osz` files into osu!.
-
-The application does not directly modify the `Songs` directory used by osu!stable or the internal storage used by osu!lazer.
-
----
-
-## Download Source Is Controlled by the User
-
-| Strategy                                 | Behavior                                                                                                                                                                                    |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Official Only** — default              | Downloads only from the official website and requires a valid website session                                                                                                               |
-| **Official First, Then Selected Mirror** | Attempts the selected mirror when the official source fails, the session expires, or the official source becomes unavailable; if no session is configured, the mirror is attempted directly |
-| **Selected Mirror Only**                 | Uses Sayobot, Nerinyan, or Mino (`catboy.best`) without sending the official website session                                                                                                |
-
-HTTP `429` rate limits respect `Retry-After`.
-
-Concurrent tasks using the same source share the same cooldown period. After three consecutive failures, a task is marked as failed. Rate limiting alone does not automatically switch the download source.
-
-Default concurrency is `1`, with a maximum of `3`. New download requests are separated by approximately `1.5` seconds or more.
-
-**No Video** is supported by:
-
-* Official osu! download
-* Sayobot
-* Nerinyan
-
-This option is disabled when using Mino. Actual availability of a no-video package depends on the selected source.
-
----
-
-## Official Login Method and Limitations
-
-The official osu! documentation states that endpoints marked `lazer` are not available to normal Authorization Code or Client Credentials OAuth applications.
-
-For this reason, osu! Batch uses the existing authenticated web download route instead of requiring users to create an OAuth application.
-
-The application does **not** request your osu! username or password.
-
-### Setting an Official Session
-
-1. Sign in to the [osu! website](https://osu.ppy.sh/home) in your own browser.
-2. Open any beatmapset page.
-3. Press **F12**, open **Network**, and click the official **Download** button.
-4. Find the request under the `osu.ppy.sh` domain matching:
-
-```text
-/beatmapsets/<number>/download
-```
-
-5. Under **Request Headers**, copy the value of the `Cookie` header and paste it into the session window in osu! Batch.
-
-Alternatively:
-
-1. Open **Application → Cookies → https://osu.ppy.sh**
-2. Copy the value of `osu_session`.
+osu! Batch Web is a Tampermonkey userscript for searching, collecting and batch-downloading beatmapsets on [osu.ppy.sh](https://osu.ppy.sh/). It uses your current browser login for official downloads and lets you explicitly choose a mirror.
 
 > [!IMPORTANT]
-> Your Cookie represents your current authenticated session.
->
-> **Do not share it with anyone and do not paste it into chats, issues, screenshots, or public logs.**
+> **Project direction — 2026-10-24:** Future development focuses on the Web / Tampermonkey edition on `tampermonkey-web`.
+> Development of the Python desktop application and its Windows executable has stopped, including new features, fixes and packaged releases. Existing source and releases remain available for reference and existing users.
 
-The Cookie is stored only in process memory.
+## Editions
 
-It is not saved to:
+| Edition | Status | Entry point |
+| --- | --- | --- |
+| **Web / Tampermonkey** | **Active development**; userscript version **0.3.4** at the time of this documentation update | [Install the userscript](https://raw.githubusercontent.com/Noob-Bro/Osu-Batch/tampermonkey-web/tampermonkey/osu-batch.user.js) · [Usage details](tampermonkey/README.md) |
+| Python / Windows executable | **Discontinued**; latest published desktop release is **1.1.1** | [Legacy branch and instructions](https://github.com/Noob-Bro/Osu-Batch/tree/main) · [Historical releases](https://github.com/Noob-Bro/Osu-Batch/releases) |
 
-* configuration files
-* the queue database
-* error messages
+The Python files retained in this branch are historical desktop code. They are not required to run the userscript and are no longer a development target.
 
-After closing the program, the session must be configured again.
+## Install and start
 
-The Cookie is sent only to:
+1. Install Tampermonkey in your browser.
+2. Open the [raw userscript](https://raw.githubusercontent.com/Noob-Bro/Osu-Batch/tampermonkey-web/tampermonkey/osu-batch.user.js) and confirm installation in Tampermonkey.
+3. Sign in to [osu!](https://osu.ppy.sh/home) for official search and downloads, then click the floating **osu! Batch** button.
+4. Choose a download source and save method, add beatmapset links/IDs or search for maps, and click **Start / resume**.
 
-```text
-https://osu.ppy.sh:443
-```
+No Python installation or Windows executable is needed. The interface starts in English and provides a Chinese switch. Keep the osu! page open while downloading.
 
-If the download redirects to a file server, the Cookie is not forwarded.
+## Search and queue
 
-The official website may require browser verification or reject non-browser HTTP clients.
+- Paste beatmapset IDs or `osu.ppy.sh/beatmapsets/...` links, or collect beatmapset links from the current webpage.
+- Search all pages returned by the official beatmapset search endpoint.
+- Filter by title/artist (including romanized fields), mapper, source, status, mode, genre, language, BPM, length, stars and submission/update/ranked-or-approved dates.
+- Preview paginated results, select individual items or all results, then explicitly choose **Add selected**. Searching does not automatically queue downloads.
+- Sort results by the supported fields in ascending or descending order.
+- Keep a persistent queue in Tampermonkey storage, with **1–6 concurrent downloads** (default **3**) and configurable spacing between starts. Pause cancels active requests; starting again retries unfinished items.
 
-Copying a browser session does not guarantee that such protections can be bypassed, and this application does not attempt to automate those verification mechanisms.
+### Example: Ranked + Laur + osu! standard
 
-If you receive HTTP `401` or `403`:
+1. Enter `Laur` in **Artist** and enable **Exact artist**.
+2. Choose `Ranked` and `osu! standard`.
+3. Click **Search all pages**.
+4. Review the result list, use **Select all** or select individual rows, and click **Add selected**.
+5. Choose the download source and click **Start / resume**.
 
-1. Sign in again in your browser.
-2. Complete any website verification.
-3. Reconfigure the session.
+Exact artist matching normalizes Unicode width and case; `Laur feat. Sennzai` is not exactly `Laur`. The separate romanized artist field uses substring matching, so use **Artist** for this exact-match example. A matching set is downloaded as a whole `.osz` file, including its other difficulties/modes.
 
-If the official source still does not work, you may manually choose a mirror.
+“All pages” refers to what the selected endpoint returns for that search. It is not a promise of a permanent, complete catalogue across sources; account access, search limits, synchronization delays and changing content can affect results.
 
-The status:
+## Download sources and saving
 
-```text
-Session configured · Unverified
-```
+**Official** is the default download source. Official requests use the current osu! browser session; the script does not ask you to copy or save an `osu_session` Cookie. Sayobot, Nerinyan and Mino are optional download sources selected explicitly; the script does not silently switch between them. Search uses the official website regardless of the selected download mirror. No-video availability depends on the selected source.
 
-means only that the provided session value was accepted as input. The program does not claim that the session is valid until an actual official download succeeds.
+In Edge/Chrome, **Choose folder once (recommended)** asks for a destination directory when starting. After permission is granted, the queue writes completed files there without a confirmation for each file. The folder handle lasts for the current page session; choose the folder again after a page reload. Existing same-name files in that directory can be overwritten.
 
----
+**Browser downloads** is available for compatibility. Browser multiple-download permissions and Tampermonkey's download settings may still apply. If Tampermonkey reports `not_whitelisted` for `.osz`, use direct-folder mode, the native browser fallback, or allow the extension in Tampermonkey's settings.
 
-## Input Formats
+Files use `ID Artist - Title.osz`, or `ID-novideo Artist - Title.osz`. Missing metadata is looked up before downloading; unavailable names fall back to known fields or the ID. Direct-folder downloads buffer a complete file in memory, so reduce concurrency for large beatmapsets or low-memory devices.
 
-Supported examples:
+## Detect an existing osu!stable library
 
-```text
-https://osu.ppy.sh/beatmapsets/123456#osu/789012
-https://osu.ppy.sh/s/234567
-345678
-456789, 567890
-```
-
-Rules:
-
-* Numeric values are always interpreted as **Beatmapset IDs**.
-* The entire beatmapset is downloaded.
-* Different difficulty links belonging to the same beatmapset are deduplicated.
-* The initial release does not resolve URLs containing only a single beatmap ID, such as `/beatmaps/123` or `/b/123`. Open the official website and copy the full URL containing `beatmapsets`.
-* IDs already present in the current queue are not added again.
-* To redownload a completed task, change its download directory, or switch the video option, remove the existing task record first and then add it again.
-* Deduplication checks filenames generated by this tool in the configured download directory. The application does not scan your osu! song library and does not check whether the server contains a newer revision of an existing beatmapset.
-
----
-
-## Pause, Resume, and Validation
-
-* Pausing or cancelling preserves `.part` temporary files.
-* Cancelled tasks do not resume automatically. Use **Retry Failed / Cancelled** to resume them.
-* Closing the application stops downloads before saving the queue.
-* While waiting for a network response, shutdown normally takes up to approximately 20 seconds, although multiple redirects or other network conditions may take longer.
-* Resume requests are sent only when the source, beatmapset, and video option match and a usable `ETag` or `Last-Modified` value exists.
-* If the server ignores `Range`, returns an inconsistent `Content-Range`, or otherwise cannot safely resume, the file is downloaded again to avoid combining data from different archive versions.
-* After downloading, every ZIP entry is checked for CRC integrity.
-* `.osu` files are validated.
-* If a valid `BeatmapSetID` field exists, it is checked against the requested ID. Older beatmaps may lack this field, in which case ID validation cannot be performed using it.
-* The temporary file is renamed to `.osz` only after validation succeeds.
-* Maximum compressed archive size: **2 GiB**
-* Maximum total uncompressed contents: **4 GiB**
-* Archives are not extracted to disk during validation.
-* If a file with the same name already exists, it is validated first. A valid file is skipped; an invalid file causes an error and the existing user file is preserved.
-* Normal package filenames use:
+Click **Load osu!.db** and manually select your stable database, usually:
 
 ```text
-<BeatmapsetID>.osz
+%LOCALAPPDATA%\osu!\osu!.db
 ```
 
-* No-video packages use:
+It is parsed locally in the browser and is not uploaded. BeatmapSet IDs are stored in Tampermonkey storage; matching queue entries and osu! page links are highlighted pale green. Reload `osu!.db` after installing or removing maps to refresh the index.
 
-```text
-<BeatmapsetID>-novideo.osz
-```
+The script cannot silently watch `Songs`. osu!lazer's `client.realm` is not supported.
 
-* **Remove Selected Record** removes only the selected queue record. It does not delete `.osz` or temporary files.
-* **Clear all download records** asks for confirmation and removes all queue records. It does not delete `.osz` or temporary files, and is unavailable while downloads are active.
-* Unneeded `.part` files and their corresponding `.json` metadata can be manually removed after closing the program.
+## Limits and migration from desktop
 
-Queue and settings are stored by default at:
+| Area | Web edition | Discontinued desktop edition |
+| --- | --- | --- |
+| Official session | Current browser login | Cookie supplied to the application for each run |
+| Queue/settings | Tampermonkey extension storage | SQLite under `%LOCALAPPDATA%\OsuBatch` |
+| Pause/resume | Resume the queue; unfinished downloads restart | Partial-file resume when the source supports it |
+| Archive validation | No ZIP CRC or downloaded-content verification | CRC and `.osu` / beatmapset-ID checks |
+| Local library | User-selected stable `osu!.db` | Read-only stable `Songs` scanning in desktop source |
 
-```text
-%LOCALAPPDATA%\OsuBatch\queue.sqlite3
-```
+The Web edition does not automatically import the desktop SQLite queue or settings. Add the required links/IDs again, or export desktop failed-task links and paste them into the Web queue. This documentation update does not alter existing local queues, databases or downloaded files.
 
-For development and testing, another data directory can be specified with:
+Website and mirror behavior can change. This documentation update is not a new live-service compatibility test.
 
-```text
-OSU_BATCH_DATA_DIR
-```
+## Development
 
-The application uses a single-instance lock to prevent multiple processes from modifying the same queue simultaneously.
+The maintained code is under `tampermonkey/`:
 
----
+- `osu-batch.user.js` — installable userscript.
+- `osu-batch.test.js` — parsing and filtering tests.
+- `osu-batch.concurrent.test.js` — concurrent-queue tests.
+- `README.md` — Web usage details.
 
-## Running from Source
-
-Requires Python 3.12+.
-
-From the source directory:
+Run the mock-based, offline JavaScript tests with Node.js:
 
 ```powershell
-py -3 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe app.py
+node --test tampermonkey/osu-batch.test.js tampermonkey/osu-batch.concurrent.test.js
 ```
 
-### Development Validation and Packaging
-
-```powershell
-.\.venv\Scripts\python.exe -m pip install pytest==9.1.1 pyinstaller==6.22.2
-.\.venv\Scripts\python.exe -m pytest tests -q
-.\.venv\Scripts\python.exe build.py
-```
-
-The portable build is generated at:
-
-```text
-dist/OsuBatch/
-```
-
-Distribute the **entire directory**, not only `OsuBatch.exe`.
-
-The application uses PyInstaller's `onedir` layout with dynamic libraries stored separately, allowing dependency libraries to be replaced when necessary.
-
-Third-party components remain subject to their respective licenses.
-
----
-
-## Project Structure
-
-* `app.py` — desktop UI and threaded task scheduling.
-* `engine.py` — download source adapters, retries, resume support, and content validation.
-* `store.py` — persistent queue and settings storage.
-* `search.py` — official and Sayobot paginated search, local filtering, and search completeness validation.
-* `search_dialog.py` — filtering interface, result preview, and queue insertion.
-* `tests/` — tests for download failures, credential isolation, persistence, and UI workflows.
-* `build.py` — Windows portable build entry point.
-* `OsuBatch.spec` — PyInstaller dependency collection configuration and exclusion rules for potentially conflicting ICU dynamic libraries.
-
----
-
-## API and Implementation References
-
-Last verified: **2026-09-06**
-
-External service behavior may change. Source-code implementation references do not guarantee that downloads will continue to work against current online services.
-
-* [Official Authentication and API Documentation](https://osu.ppy.sh/docs/) — authorization limitations of lazer-marked endpoints.
-* [Official BeatmapsetsController](https://github.com/ppy/osu-web/blob/master/app/Http/Controllers/BeatmapsetsController.php) — web downloads, `noVideo`, quotas, and redirects.
-* [Official Helper Functions](https://github.com/ppy/osu-web/blob/master/app/helpers.php) — official Referer / Origin validation.
-* [Nerinyan Download Service](https://github.com/Nerinyan/nerinyan-download-apiv1/blob/main/route/download/downloadBeatmapSetV2.go) — download behavior and `nv` / `noVideo` parameters.
-* [Mino](https://catboy.best/) and its [API documentation](https://catboy.best/docs).
-* [Sayobot](https://osu.sayobot.cn/) frontend download routes:
-
-```text
-https://txy1.sayobot.cn/beatmaps/download/full/{id}
-https://txy1.sayobot.cn/beatmaps/download/novideo/{id}
-```
-
-Real online validation results and test results are documented in:
-
-```text
-VALIDATION.md
-```
-
----
+Future contributions should target `tampermonkey-web` and focus on the userscript. The Python application, PyInstaller build and historical Windows releases are retained without ongoing maintenance.
 
 ## License
 
-See [`LICENSE`](LICENSE) for license information.
+See [LICENSE](LICENSE). osu! Batch is independent of osu! and the mirror operators.
